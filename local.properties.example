@@ -1,0 +1,7 @@
+sdk.dir=C\:\\Users\\YOUR_USER\\AppData\\Local\\Android\\Sdk
+PARTICIPANT_KEY=
+TERMINAL_ID=TID001
+EZYPOS_MID=
+
+# Override gradle.properties: set true when developing alongside ../sdk-android
+useCompositeSdk=false

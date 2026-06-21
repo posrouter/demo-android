@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Waffle cone -->
+    <path
+        android:fillColor="#E09F3E"
+        android:pathData="M36,60 L54,98 L72,60 Z" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M41,66 L54,92 M47,62 L54,80 M54,60 L54,98 M61,62 L54,80 M67,66 L54,92"
+        android:strokeColor="#B86E1F"
+        android:strokeLineCap="round"
+        android:strokeWidth="2" />
+
+    <!-- Ice cream scoop (compact) -->
+    <path
+        android:fillColor="#FFF5F8"
+        android:pathData="M38,58 C38,46 45,38 54,38 C63,38 70,46 70,58 C70,62 64,64 54,64 C44,64 38,62 38,58 Z" />
+    <path
+        android:fillColor="#FF8FAB"
+        android:pathData="M54,38 C48,40 42,46 41,52 C46,48 50,46 54,46 C58,46 62,48 67,52 C66,46 60,40 54,38 Z" />
+
+    <!-- Swirl -->
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M44,52 C50,48 58,48 64,52"
+        android:strokeColor="#FF6B9E"
+        android:strokeLineCap="round"
+        android:strokeWidth="2" />
+
+    <!-- Cherry -->
+    <path
+        android:fillColor="#D62828"
+        android:pathData="M54,32 m-5,0 a5,5 0 1,1 10,0 a5,5 0 1,1 -10,0" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M54,32 Q58,26 63,24"
+        android:strokeColor="#2D6A4F"
+        android:strokeLineCap="round"
+        android:strokeWidth="2" />
+</vector>

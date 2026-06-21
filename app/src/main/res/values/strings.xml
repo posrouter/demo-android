@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">POSRouter Demo</string>
+    <string name="app_title">Ice Cream Menu</string>
+    <string name="order_label">Current Order</string>
+    <string name="order_empty_hint">Tap + to add items</string>
+    <string name="order_empty">Add at least one item before paying</string>
+    <string name="total_zero">Total: $0.00</string>
+    <string name="total_format">Total: $%.2f</string>
+    <string name="price_format">$%.2f</string>
+    <string name="btn_add">+</string>
+    <string name="btn_clear">Clear</string>
+    <string name="btn_connect">Connect</string>
+    <string name="btn_connecting">Connecting…</string>
+    <string name="btn_connected">Ezypos OK</string>
+    <string name="btn_pay_card">Pay (Card)</string>
+    <string name="btn_pay_qr">Pay (QR Code)</string>
+    <string name="sdk_status_label">SDK Status</string>
+    <string name="sdk_status_hint">Waiting for SDK events…</string>
+    <string name="route_explicit_intent">Explicit Intent (LENS_DATA)</string>
+    <string name="route_deep_link">Deep Link (ezypos://)</string>
+    <string name="route_network">Network (NATS)</string>
+    <string name="connect_nats_ready">Gateway/NATS ready — Ezypos not configured on this device; tap Connect on the terminal with Ezypos</string>
+    <string name="connect_ezypos_launched">Ezypos connect launched — complete setup in Ezypos and wait for CONNECT callback</string>
+    <string name="connect_ezypos_confirmed">Ezypos connect confirmed — tap Connect again to re-register if needed</string>
+    <string name="pay_banner_title_approved">Payment successful</string>
+    <string name="pay_banner_title_cancelled">Payment cancelled</string>
+    <string name="pay_banner_title_declined">Payment declined</string>
+    <string name="pay_banner_title_error">Payment error</string>
+    <string name="pay_banner_message">Order %1$s\nAmount: %2$s %3$s</string>
+    <string name="pay_banner_ok">OK</string>
+</resources>
