@@ -21,30 +21,96 @@ EZYPOS_MID=1FRD9Z
 
 Use the **same `TERMINAL_ID`** as the kiosk terminal on the same lane.
 
-## SDK integration (AAR or composite)
+## SDK integration
 
-Partners use the **AAR** bundled under `app/libs/posrouter-release.aar` (default).
+Three ways to depend on the SDK (set in `gradle.properties` or override in `local.properties`):
 
-| `useCompositeSdk` | Source | Who |
-|---|---|---|
-| `false` (default) | `app/libs/posrouter-release.aar` | Partners / release builds |
-| `true` | `includeBuild("../sdk-android")` | Internal SDK development |
+| Mode | Flags | Source | Who |
+|---|---|---|---|
+| **AAR** (default) | `useCompositeSdk=false`, `useMavenSdk=false` | `app/libs/posrouter-release.aar` | Partners without GitHub access |
+| **Maven** | `useMavenSdk=true` | GitHub Packages `com.posrouter:posrouter` | Partners with org/repo access |
+| **Composite** | `useCompositeSdk=true` | `includeBuild("../sdk-android")` | POSRouter internal SDK dev |
 
-Set in `gradle.properties` or override in `local.properties`:
+Only one mode should be active. Composite takes precedence if both SDK flags are set.
 
-```properties
-useCompositeSdk=false
-```
+### AAR mode (default)
 
-When using the AAR, Gradle also adds SDK runtime dependencies (`jnats`, `kotlinx-coroutines-android`). No Java/Kotlin API changes are required.
+Bundled file: `app/libs/posrouter-release.aar`. Gradle also adds runtime deps (`jnats`, `kotlinx-coroutines-android`).
 
-### Refresh the AAR (POSRouter maintainers)
+Maintainers refresh the AAR:
 
 ```bash
 cd ../sdk-android
 ./gradlew :posrouter:assembleRelease
 cp posrouter/build/outputs/aar/posrouter-release.aar ../demo-android/app/libs/
 ```
+
+### Maven mode (GitHub Packages)
+
+The SDK is published to a **private** registry — not Maven Central. Download requires a GitHub account with access to `posrouter/sdk-android` and a Personal Access Token (PAT).
+
+**1. Get access**
+
+- Ask POSRouter to add your GitHub user to the `posrouter` org or `sdk-android` repo, **or**
+- Receive an AAR build instead (no GitHub needed).
+
+**2. Create a Classic PAT**
+
+GitHub → Settings → Developer settings → Personal access tokens → **Generate new token (classic)**
+
+Scopes:
+
+- `read:packages` (required)
+- `repo` (required if the repository is private)
+
+**3. Add to `local.properties`**
+
+```properties
+useMavenSdk=true
+useCompositeSdk=false
+gpr.user=YOUR_GITHUB_USERNAME
+gpr.key=ghp_...
+```
+
+**4. Set SDK version** in `gradle.properties`:
+
+```properties
+posrouterVersion=1.0.2
+```
+
+**5. Build**
+
+```bash
+./gradlew :app:assembleDebug
+```
+
+This project already wires the GitHub Packages repository in `settings.gradle.kts` when `useMavenSdk=true`. In your own app, add the same repository block:
+
+```kotlin
+// settings.gradle.kts
+dependencyResolutionManagement {
+    repositories {
+        google()
+        mavenCentral()
+        maven {
+            url = uri("https://maven.pkg.github.com/posrouter/sdk-android")
+            credentials {
+                username = providers.gradleProperty("gpr.user").get()
+                password = providers.gradleProperty("gpr.key").get()
+            }
+        }
+    }
+}
+```
+
+```kotlin
+// app/build.gradle.kts
+dependencies {
+    implementation("com.posrouter:posrouter:1.0.2")
+}
+```
+
+POM includes transitive dependencies — no need to declare `jnats` or `coroutines` manually.
 
 ## Build & install
 

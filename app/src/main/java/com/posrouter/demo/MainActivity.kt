@@ -36,6 +36,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var totalAmount: TextView
     private lateinit var sdkStatus: TextView
     private lateinit var btnConnect: MaterialButton
+    private lateinit var btnVoidPayment: MaterialButton
     private var orderCounter = 1
     private var pendingOrderId: String? = null
     private var isConnected = false
@@ -58,7 +59,9 @@ class MainActivity : AppCompatActivity() {
         totalAmount = findViewById(R.id.totalAmount)
         sdkStatus = findViewById(R.id.sdkStatus)
         btnConnect = findViewById(R.id.btnConnect)
+        btnVoidPayment = findViewById(R.id.btnVoidPayment)
         applyConnectButtonStyle()
+        updateVoidButtonState()
 
         findViewById<RecyclerView>(R.id.productList).apply {
             layoutManager = LinearLayoutManager(this@MainActivity)
@@ -72,6 +75,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnPayCard).setOnClickListener { onPay(DemoConfig.PAY_METHOD_CARD) }
         findViewById<Button>(R.id.btnPayQr).setOnClickListener { onPay(DemoConfig.PAY_METHOD_QR) }
         findViewById<MaterialButton>(R.id.btnClearOrder).setOnClickListener { clearOrder() }
+        btnVoidPayment.setOnClickListener { onVoidPayment() }
 
         handlePayResultIntent(intent)
     }
@@ -112,6 +116,7 @@ class MainActivity : AppCompatActivity() {
         val totalCents = orderItems.sumOf { it.priceCents }
         val orderId = nextOrderId()
         pendingOrderId = orderId
+        updateVoidButtonState()
         val remark = orderItems.groupingBy { it.name }.eachCount()
             .entries.joinToString(", ") { (name, count) -> "$count x $name" }
 
@@ -131,12 +136,31 @@ class MainActivity : AppCompatActivity() {
                     result != null -> reportPayResult(result)
                     error != null -> {
                         pendingOrderId = null
+                        updateVoidButtonState()
                         POSRouter.cancelPendingPayment(orderId)
                         appendSdkStatus("Pay error [${error.code}]: ${error.message}")
                     }
                 }
             }
         )
+    }
+
+    private fun onVoidPayment() {
+        val orderId = pendingOrderId
+        if (orderId.isNullOrBlank()) {
+            Toast.makeText(this, R.string.void_no_pending, Toast.LENGTH_SHORT).show()
+            return
+        }
+        appendSdkStatus("Void requested — order=$orderId")
+        if (POSRouter.voidPayment(orderId)) {
+            appendSdkStatus("Void published; waiting for terminal ack…")
+        } else {
+            appendSdkStatus("Void failed — no open payment for order=$orderId")
+        }
+    }
+
+    private fun updateVoidButtonState() {
+        btnVoidPayment.isEnabled = !pendingOrderId.isNullOrBlank()
     }
 
     private fun reportConnectResult(result: PaymentResult) {
@@ -210,12 +234,16 @@ class MainActivity : AppCompatActivity() {
         }
         showPayResultDialog(result)
         pendingOrderId = null
+        updateVoidButtonState()
     }
 
     private fun showPayResultDialog(result: PaymentResult) {
         val titleRes = when (result.status) {
             PaymentStatus.APPROVED -> R.string.pay_banner_title_approved
-            PaymentStatus.CANCELLED -> R.string.pay_banner_title_cancelled
+            PaymentStatus.CANCELLED -> when (result.metadata["cancelReason"]) {
+                com.posrouter.PaymentCancelReason.INITIATOR_VOID -> R.string.pay_banner_title_voided
+                else -> R.string.pay_banner_title_cancelled
+            }
             PaymentStatus.DECLINED -> R.string.pay_banner_title_declined
             PaymentStatus.ERROR -> R.string.pay_banner_title_error
         }

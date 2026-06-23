@@ -3,5 +3,12 @@ PARTICIPANT_KEY=
 TERMINAL_ID=TID001
 EZYPOS_MID=
 
-# Override gradle.properties: set true when developing alongside ../sdk-android
+# SDK source (pick one):
+# useCompositeSdk=true   — link ../sdk-android source (internal dev)
+# useMavenSdk=true       — GitHub Packages (see README)
 useCompositeSdk=false
+useMavenSdk=false
+
+# GitHub Packages credentials (required when useMavenSdk=true)
+gpr.user=YOUR_GITHUB_USERNAME
+gpr.key=ghp_...
