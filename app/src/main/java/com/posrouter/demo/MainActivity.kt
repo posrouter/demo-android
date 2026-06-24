@@ -8,17 +8,22 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ArrayAdapter
 import android.widget.ScrollView
 import android.widget.Button
+import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.color.MaterialColors
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.textfield.TextInputEditText
 import com.posrouter.LocalRouteMethod
+import com.posrouter.RoutePreference
 import com.posrouter.POSRouter
 import com.posrouter.POSRouterCallback
 import com.posrouter.POSRouterError
@@ -53,7 +58,7 @@ class MainActivity : AppCompatActivity() {
             isConnected = ConnectStateStore.isEzyposConnected(this)
         }
 
-        POSRouter.initialize(this, DemoConfig.routerConfig())
+        POSRouter.initialize(this, DemoConfig.routerConfig(this))
 
         orderSummary = findViewById(R.id.orderSummary)
         totalAmount = findViewById(R.id.totalAmount)
@@ -71,7 +76,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        btnConnect.setOnClickListener { onConnect() }
+        btnConnect.setOnClickListener { showConnectOptionsDialog() }
         findViewById<Button>(R.id.btnPayCard).setOnClickListener { onPay(DemoConfig.PAY_METHOD_CARD) }
         findViewById<Button>(R.id.btnPayQr).setOnClickListener { onPay(DemoConfig.PAY_METHOD_QR) }
         findViewById<MaterialButton>(R.id.btnClearOrder).setOnClickListener { clearOrder() }
@@ -97,14 +102,72 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
     }
 
-    private fun onConnect() {
-        appendSdkStatus("Connect requested…")
-        POSRouter.connect(this, routerCallback { result, error ->
-            when {
-                result != null -> reportConnectResult(result)
-                error != null -> appendSdkStatus("Connect error [${error.code}]: ${error.message}")
+    private fun showConnectOptionsDialog() {
+        val dialogView = layoutInflater.inflate(R.layout.dialog_connect_options, null)
+        val terminalInput = dialogView.findViewById<TextInputEditText>(R.id.inputTerminalId)
+        val merchantInput = dialogView.findViewById<TextInputEditText>(R.id.inputMerchantId)
+        val routeSpinner = dialogView.findViewById<Spinner>(R.id.routePreferenceSpinner)
+
+        terminalInput.setText(ConnectStateStore.getTerminalId(this))
+        merchantInput.setText(ConnectStateStore.getMerchantId(this))
+
+        val routeLabels = resources.getStringArray(R.array.route_preference_labels)
+        val routeValues = resources.getStringArray(R.array.route_preference_values)
+        routeSpinner.adapter = ArrayAdapter(
+            this,
+            android.R.layout.simple_spinner_item,
+            routeLabels
+        ).also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+
+        val currentRoute = ConnectStateStore.getRoutePreference(this)
+        routeSpinner.setSelection(routeValues.indexOf(currentRoute).coerceAtLeast(0))
+
+        val dialog = MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.connect_options_title)
+            .setView(dialogView)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(R.string.btn_connect, null)
+            .create()
+
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val terminalId = terminalInput.text?.toString()?.trim().orEmpty()
+                val merchantId = merchantInput.text?.toString()?.trim().orEmpty()
+                if (terminalId.isBlank() || merchantId.isBlank()) {
+                    Toast.makeText(this, R.string.connect_missing_fields, Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+                val routePreference = routeValues.getOrElse(routeSpinner.selectedItemPosition) {
+                    RoutePreference.AUTO
+                }
+                ConnectStateStore.saveConnectSettings(
+                    this,
+                    terminalId,
+                    merchantId,
+                    routePreference
+                )
+                dialog.dismiss()
+                performConnect(terminalId, merchantId, routePreference)
             }
-        })
+        }
+        dialog.show()
+    }
+
+    private fun performConnect(terminalId: String, merchantId: String, routePreference: String) {
+        POSRouter.initialize(this, DemoConfig.routerConfig(terminalId, merchantId))
+        appendSdkStatus(
+            "Connect requested — terminal=$terminalId merchant=$merchantId route=$routePreference"
+        )
+        POSRouter.connect(
+            this,
+            routerCallback { result, error ->
+                when {
+                    result != null -> reportConnectResult(result)
+                    error != null -> appendSdkStatus("Connect error [${error.code}]: ${error.message}")
+                }
+            },
+            routePreference = routePreference
+        )
     }
 
     private fun onPay(method: String) {
@@ -125,7 +188,7 @@ class MainActivity : AppCompatActivity() {
         POSRouter.pay(
             this,
             PaymentRequest(
-                terminalId = DemoConfig.routerConfig().terminalId,
+                terminalId = ConnectStateStore.getTerminalId(this@MainActivity),
                 amount = totalCents,
                 orderId = orderId,
                 remark = remark,

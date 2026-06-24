@@ -19,7 +19,19 @@ TERMINAL_ID=TID001
 EZYPOS_MID=1FRD9Z
 ```
 
-Use the **same `TERMINAL_ID`** as the kiosk terminal on the same lane.
+Use the **same `TERMINAL_ID`** as the kiosk terminal on the same lane. These are **defaults** for the in-app Connect dialog; you can change terminal, merchant, and route preference each time you tap **Connect** (saved in app preferences).
+
+## Connect options (in-app)
+
+Tap **Connect** to open:
+
+| Field | Description |
+|-------|-------------|
+| Terminal ID | Lensing namespace terminal (must match kiosk on the lane) |
+| Merchant ID | `merchantId` segment on Lensing subjects |
+| Route preference | `auto` · `local_first` · `remote_first` · `local_only` · `remote_only` |
+
+Route preference applies to **connect**, **pay**, and **refund** until changed on the next Connect.
 
 ## SDK integration
 

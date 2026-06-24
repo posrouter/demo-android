@@ -1,5 +1,6 @@
 package com.posrouter.demo
 
+import android.content.Context
 import com.posrouter.LocalParamSeparator
 import com.posrouter.POSRouterConfig
 
@@ -12,12 +13,18 @@ object DemoConfig {
     const val PAY_METHOD_CARD = "emv_card"
     const val PAY_METHOD_QR = "show_qr_code"
 
-    fun routerConfig() = POSRouterConfig(
+    fun routerConfig(context: Context): POSRouterConfig =
+        routerConfig(
+            terminalId = ConnectStateStore.getTerminalId(context),
+            merchantId = ConnectStateStore.getMerchantId(context)
+        )
+
+    fun routerConfig(terminalId: String, merchantId: String) = POSRouterConfig(
         participantCode = PARTICIPANT_CODE,
         participantKey = BuildConfig.PARTICIPANT_KEY,
-        terminalId = BuildConfig.TERMINAL_ID,
+        terminalId = terminalId,
         acquirerCode = ACQUIRER_CODE,
-        merchantId = BuildConfig.EZYPOS_MID,
+        merchantId = merchantId,
         callbackUrl = CALLBACK_URL,
         currency = CURRENCY,
         acquirerPackageOverride = ACQUIRER_PACKAGE,

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="route_preference_labels">
+        <item>@string/route_pref_auto</item>
+        <item>@string/route_pref_local_first</item>
+        <item>@string/route_pref_remote_first</item>
+        <item>@string/route_pref_local_only</item>
+        <item>@string/route_pref_remote_only</item>
+    </string-array>
+
+    <string-array name="route_preference_values">
+        <item>auto</item>
+        <item>local_first</item>
+        <item>remote_first</item>
+        <item>local_only</item>
+        <item>remote_only</item>
+    </string-array>
+</resources>

@@ -12,6 +12,17 @@
     <string name="btn_clear">Clear</string>
     <string name="btn_void_payment">Void remote payment</string>
     <string name="btn_connect">Connect</string>
+    <string name="connect_options_title">Connect options</string>
+    <string name="connect_field_terminal_id">Terminal ID</string>
+    <string name="connect_field_merchant_id">Merchant ID</string>
+    <string name="connect_field_route_preference">Route preference</string>
+    <string name="connect_options_hint">Terminal and merchant must match the lane / kiosk. Route preference applies to connect, pay, and refund.</string>
+    <string name="connect_missing_fields">Terminal ID and Merchant ID are required</string>
+    <string name="route_pref_auto">Auto — try local, then Lensing</string>
+    <string name="route_pref_local_first">Local first — force local, then Lensing</string>
+    <string name="route_pref_remote_first">Remote first — Lensing only</string>
+    <string name="route_pref_local_only">Local only</string>
+    <string name="route_pref_remote_only">Remote only — Lensing only</string>
     <string name="btn_connecting">Connecting…</string>
     <string name="btn_connected">Ezypos OK</string>
     <string name="btn_pay_card">Pay (Card)</string>
