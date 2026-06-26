@@ -8,6 +8,9 @@ PARTICIPANT_KEY=
 TERMINAL_ID=TID001
 EZYPOS_MID=
 
+# Optional: Vercel Preview Gateway (omit for production default)
+# GATEWAY_BASE_URL=https://preview.posrouter.com
+
 # SDK source (pick one):
 # useCompositeSdk=true   — link ../sdk-android source (internal dev)
 # useMavenSdk=true       — GitHub Packages (see README)

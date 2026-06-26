@@ -29,6 +29,7 @@ object DemoConfig {
         callbackUrl = CALLBACK_URL,
         currency = CURRENCY,
         acquirerPackageOverride = ACQUIRER_PACKAGE,
-        localParamSeparator = LocalParamSeparator.AMPERSAND
+        localParamSeparator = LocalParamSeparator.AMPERSAND,
+        gatewayBaseUrl = BuildConfig.GATEWAY_BASE_URL.takeIf { it.isNotBlank() }
     )
 }

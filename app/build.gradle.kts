@@ -47,6 +47,11 @@ android {
             "EZYPOS_MID",
             "\"${localProperties.getProperty("EZYPOS_MID", "")}\""
         )
+        buildConfigField(
+            "String",
+            "GATEWAY_BASE_URL",
+            "\"${localProperties.getProperty("GATEWAY_BASE_URL", "")}\""
+        )
     }
 
     buildFeatures {
