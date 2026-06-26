@@ -61,6 +61,13 @@
             android:text="@string/btn_pay_qr" />
     </LinearLayout>
 
+    <Button
+        android:id="@+id/btnPaySkyzer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="@string/btn_pay_skyzer" />
+
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnVoidPayment"
         style="?attr/materialButtonOutlinedStyle"

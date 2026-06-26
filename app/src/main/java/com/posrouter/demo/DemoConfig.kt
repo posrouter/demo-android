@@ -3,6 +3,7 @@ package com.posrouter.demo
 import android.content.Context
 import com.posrouter.LocalParamSeparator
 import com.posrouter.POSRouterConfig
+import com.posrouter.PaymentRequest
 
 object DemoConfig {
     /** A-side ordering identity for Gateway `/init` (NATS auth). Not the same as [ACQUIRER_CODE]. */
@@ -13,6 +14,7 @@ object DemoConfig {
     const val CURRENCY = "NZD"
     const val PAY_METHOD_CARD = "emv_card"
     const val PAY_METHOD_QR = "show_qr_code"
+    const val PAY_METHOD_SKYZER = PaymentRequest.METHOD_SKYZER
 
     fun routerConfig(context: Context): POSRouterConfig =
         routerConfig(

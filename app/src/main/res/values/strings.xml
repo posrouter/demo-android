@@ -28,6 +28,7 @@
     <string name="btn_connected">Ezypos OK</string>
     <string name="btn_pay_card">Pay (Card)</string>
     <string name="btn_pay_qr">Pay (QR Code)</string>
+    <string name="btn_pay_skyzer">Pay (Skyzer)</string>
     <string name="sdk_status_label">SDK Status</string>
     <string name="sdk_status_hint">Waiting for SDK events…</string>
     <string name="route_explicit_intent">Explicit Intent (LENS_DATA)</string>

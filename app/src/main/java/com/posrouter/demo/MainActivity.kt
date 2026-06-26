@@ -83,6 +83,7 @@ class MainActivity : AppCompatActivity() {
         btnConnect.setOnClickListener { showConnectOptionsDialog() }
         findViewById<Button>(R.id.btnPayCard).setOnClickListener { onPay(DemoConfig.PAY_METHOD_CARD) }
         findViewById<Button>(R.id.btnPayQr).setOnClickListener { onPay(DemoConfig.PAY_METHOD_QR) }
+        findViewById<Button>(R.id.btnPaySkyzer).setOnClickListener { onPay(DemoConfig.PAY_METHOD_SKYZER) }
         findViewById<MaterialButton>(R.id.btnClearOrder).setOnClickListener { clearOrder() }
         btnVoidPayment.setOnClickListener { onVoidPayment() }
 
