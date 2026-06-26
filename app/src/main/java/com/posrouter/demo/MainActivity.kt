@@ -23,6 +23,8 @@ import com.google.android.material.color.MaterialColors
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.textfield.TextInputEditText
 import com.posrouter.LocalRouteMethod
+import com.posrouter.NatsConnectionState
+import com.posrouter.PaymentCancelReason
 import com.posrouter.RoutePreference
 import com.posrouter.POSRouter
 import com.posrouter.POSRouterCallback
@@ -44,6 +46,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnVoidPayment: MaterialButton
     private var orderCounter = 1
     private var pendingOrderId: String? = null
+    private var voidInProgress = false
     private var isConnected = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -53,6 +56,7 @@ class MainActivity : AppCompatActivity() {
         if (savedInstanceState != null) {
             orderCounter = savedInstanceState.getInt(STATE_ORDER_COUNTER, 1)
             pendingOrderId = savedInstanceState.getString(STATE_PENDING_ORDER_ID)
+            voidInProgress = savedInstanceState.getBoolean(STATE_VOID_IN_PROGRESS, false)
             isConnected = savedInstanceState.getBoolean(STATE_EZYPOS_CONNECTED, false)
         } else {
             isConnected = ConnectStateStore.isEzyposConnected(this)
@@ -89,6 +93,7 @@ class MainActivity : AppCompatActivity() {
         super.onSaveInstanceState(outState)
         outState.putInt(STATE_ORDER_COUNTER, orderCounter)
         outState.putString(STATE_PENDING_ORDER_ID, pendingOrderId)
+        outState.putBoolean(STATE_VOID_IN_PROGRESS, voidInProgress)
         outState.putBoolean(STATE_EZYPOS_CONNECTED, isConnected)
     }
 
@@ -179,6 +184,7 @@ class MainActivity : AppCompatActivity() {
         val totalCents = orderItems.sumOf { it.priceCents }
         val orderId = nextOrderId()
         pendingOrderId = orderId
+        voidInProgress = false
         updateVoidButtonState()
         val remark = orderItems.groupingBy { it.name }.eachCount()
             .entries.joinToString(", ") { (name, count) -> "$count x $name" }
@@ -199,6 +205,7 @@ class MainActivity : AppCompatActivity() {
                     result != null -> reportPayResult(result)
                     error != null -> {
                         pendingOrderId = null
+                        voidInProgress = false
                         updateVoidButtonState()
                         POSRouter.cancelPendingPayment(orderId)
                         appendSdkStatus("Pay error [${error.code}]: ${error.message}")
@@ -214,16 +221,35 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, R.string.void_no_pending, Toast.LENGTH_SHORT).show()
             return
         }
+        if (voidInProgress) {
+            Toast.makeText(this, R.string.void_already_in_progress, Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (POSRouter.currentNatsState() != NatsConnectionState.CONNECTED) {
+            appendSdkStatus(getString(R.string.void_failed_nats))
+            Toast.makeText(this, R.string.void_failed_nats, Toast.LENGTH_LONG).show()
+            return
+        }
+
         appendSdkStatus("Void requested — order=$orderId")
         if (POSRouter.voidPayment(orderId)) {
-            appendSdkStatus("Void published; waiting for terminal ack…")
+            voidInProgress = true
+            updateVoidButtonState()
+            appendSdkStatus(getString(R.string.void_published_waiting))
         } else {
-            appendSdkStatus("Void failed — no open payment for order=$orderId")
+            appendSdkStatus(getString(R.string.void_failed_no_session))
+            Toast.makeText(this, R.string.void_failed_no_session, Toast.LENGTH_LONG).show()
         }
     }
 
     private fun updateVoidButtonState() {
-        btnVoidPayment.isEnabled = !pendingOrderId.isNullOrBlank()
+        val hasPending = !pendingOrderId.isNullOrBlank()
+        btnVoidPayment.isEnabled = hasPending && !voidInProgress
+        btnVoidPayment.text = if (voidInProgress) {
+            getString(R.string.btn_void_waiting)
+        } else {
+            getString(R.string.btn_void_payment)
+        }
     }
 
     private fun reportConnectResult(result: PaymentResult) {
@@ -281,17 +307,25 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun reportPayResult(result: PaymentResult) {
+        voidInProgress = false
         val route = routeLabel(result.localRouteMethod)
+        val cancelReason = result.metadata["cancelReason"]
         appendSdkStatus(
             buildString {
                 append("Payment ${result.status}")
                 result.orderId?.let { append(" — order=$it") }
                 if (route != null) append(" via $route")
+                cancelReason?.let { append("\n  cancelReason=$it") }
                 result.transactionId?.let { append("\n  txn=$it") }
                 result.message?.let { append("\n  $it") }
             }
         )
         if (result.status == PaymentStatus.APPROVED) {
+            orderItems.clear()
+            refreshOrder()
+        } else if (result.status == PaymentStatus.CANCELLED &&
+            cancelReason == PaymentCancelReason.INITIATOR_VOID
+        ) {
             orderItems.clear()
             refreshOrder()
         }
@@ -301,10 +335,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showPayResultDialog(result: PaymentResult) {
+        val cancelReason = result.metadata["cancelReason"]
         val titleRes = when (result.status) {
             PaymentStatus.APPROVED -> R.string.pay_banner_title_approved
-            PaymentStatus.CANCELLED -> when (result.metadata["cancelReason"]) {
-                com.posrouter.PaymentCancelReason.INITIATOR_VOID -> R.string.pay_banner_title_voided
+            PaymentStatus.CANCELLED -> when (cancelReason) {
+                PaymentCancelReason.INITIATOR_VOID -> R.string.pay_banner_title_voided
                 else -> R.string.pay_banner_title_cancelled
             }
             PaymentStatus.DECLINED -> R.string.pay_banner_title_declined
@@ -320,6 +355,7 @@ class MainActivity : AppCompatActivity() {
                     result.currency
                 )
             )
+            cancelReason?.let { append("\n\nReason: $it") }
             result.transactionId?.let { append("\n\nTxn: $it") }
             result.message?.takeIf { it.isNotBlank() }?.let { append("\n\n$it") }
         }
@@ -469,6 +505,7 @@ class MainActivity : AppCompatActivity() {
     companion object {
         private const val STATE_ORDER_COUNTER = "order_counter"
         private const val STATE_PENDING_ORDER_ID = "pending_order_id"
+        private const val STATE_VOID_IN_PROGRESS = "void_in_progress"
         private const val STATE_EZYPOS_CONNECTED = "ezypos_connected"
     }
 }

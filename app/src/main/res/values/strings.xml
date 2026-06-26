@@ -10,7 +10,8 @@
     <string name="price_format">$%.2f</string>
     <string name="btn_add">+</string>
     <string name="btn_clear">Clear</string>
-    <string name="btn_void_payment">Void remote payment</string>
+    <string name="btn_void_payment">Void payment on terminal</string>
+    <string name="btn_void_waiting">Voiding…</string>
     <string name="btn_connect">Connect</string>
     <string name="connect_options_title">Connect options</string>
     <string name="connect_field_terminal_id">Terminal ID</string>
@@ -37,8 +38,12 @@
     <string name="connect_ezypos_confirmed">Ezypos connect confirmed — tap Connect again to re-register if needed</string>
     <string name="pay_banner_title_approved">Payment successful</string>
     <string name="pay_banner_title_cancelled">Payment cancelled</string>
-    <string name="pay_banner_title_voided">Payment voided by terminal</string>
+    <string name="pay_banner_title_voided">Payment voided</string>
     <string name="void_no_pending">No payment in progress</string>
+    <string name="void_already_in_progress">Void already sent — waiting for terminal</string>
+    <string name="void_published_waiting">Void sent — waiting for terminal ack…</string>
+    <string name="void_failed_no_session">Void failed — no open payment session for this order</string>
+    <string name="void_failed_nats">Void failed — network offline; tap Connect first</string>
     <string name="pay_banner_title_declined">Payment declined</string>
     <string name="pay_banner_title_error">Payment error</string>
     <string name="pay_banner_message">Order %1$s\nAmount: %2$s %3$s</string>

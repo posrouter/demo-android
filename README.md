@@ -11,15 +11,34 @@ Production payment terminal (B-side) is **[posrouter-kiosk](../posrouter-kiosk)*
 
 ## Configuration
 
-Copy `local.properties.example` to `local.properties`:
+Copy `local.properties.example` to `local.properties`.
+
+### Participant identity (A-side)
+
+| Field | Value | Purpose |
+|-------|-------|---------|
+| `PARTICIPANT_KEY` | **GPOS** alliance secret | Gateway `/init?code=GPOS` → NATS token `TOKEN_GPOS_*` |
+| Code in app | `GPOS` (fixed in `DemoConfig`) | Ordering / initiator role |
+| `acquirerCode` in app | `SUPY` (fixed) | Lensing subject rail `lensing.SUPY.{merchant}.{tid}.*` |
 
 ```properties
-PARTICIPANT_KEY=...
+PARTICIPANT_KEY=<GPOS alliance key from Gateway / Portal>
 TERMINAL_ID=TID001
 EZYPOS_MID=1FRD9Z
 ```
 
-Use the **same `TERMINAL_ID`** as the kiosk terminal on the same lane. These are **defaults** for the in-app Connect dialog; you can change terminal, merchant, and route preference each time you tap **Connect** (saved in app preferences).
+Use the **same `TERMINAL_ID` and `EZYPOS_MID`** as **posrouter-kiosk** on the same lane. Terminal and merchant can also be changed in the in-app **Connect** dialog (saved in app preferences).
+
+### Gateway: seed both participants
+
+In Upstash (or `npm run seed:participant`), register **two** keys:
+
+```redis
+SET client:key:GPOS "<gpos-secret>"
+SET client:key:SUPY "<supy-secret>"
+```
+
+demo-android uses the **GPOS** key only. posrouter-kiosk uses the **SUPY** key only.
 
 ## Connect options (in-app)
 
@@ -136,6 +155,7 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 1. `POSRouter.initialize(context, config)`
 2. `POSRouter.connect()` — Gateway/NATS (+ local Ezypos connect when applicable)
 3. `POSRouter.pay(request, callback)` — local acquirer or NATS to terminal
-4. Handle `gomenu://pay_result` callback / await pay callback for final status
+4. Optional: `POSRouter.voidPayment(orderId)` while pay is in flight — publishes `.void` to the terminal; pay callback completes with `CANCELLED` and `cancelReason=initiator_void`
+5. Handle `gomenu://pay_result` callback / await pay callback for final status
 
 See `DemoConfig.kt` and `MainActivity.kt`.

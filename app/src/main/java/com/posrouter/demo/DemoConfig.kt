@@ -5,6 +5,7 @@ import com.posrouter.LocalParamSeparator
 import com.posrouter.POSRouterConfig
 
 object DemoConfig {
+    /** A-side ordering identity for Gateway `/init` (NATS auth). Not the same as [ACQUIRER_CODE]. */
     const val PARTICIPANT_CODE = "GPOS"
     const val ACQUIRER_CODE = "SUPY"
     const val ACQUIRER_PACKAGE = "ezypay.com.globe.cardpos"
