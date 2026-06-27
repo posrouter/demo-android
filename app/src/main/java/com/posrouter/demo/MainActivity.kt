@@ -84,6 +84,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnPayCard).setOnClickListener { onPay(DemoConfig.PAY_METHOD_CARD) }
         findViewById<Button>(R.id.btnPayQr).setOnClickListener { onPay(DemoConfig.PAY_METHOD_QR) }
         findViewById<Button>(R.id.btnPaySkyzer).setOnClickListener { onPay(DemoConfig.PAY_METHOD_SKYZER) }
+        findViewById<MaterialButton>(R.id.btnPayTerminalPick).setOnClickListener { onPayTerminalPick() }
         findViewById<MaterialButton>(R.id.btnClearOrder).setOnClickListener { clearOrder() }
         btnVoidPayment.setOnClickListener { onVoidPayment() }
 
@@ -176,7 +177,20 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
-    private fun onPay(method: String) {
+    private fun onPayTerminalPick() {
+        if (POSRouter.currentNatsState() != NatsConnectionState.CONNECTED) {
+            Toast.makeText(this, R.string.pay_terminal_pick_nats_offline, Toast.LENGTH_LONG).show()
+            return
+        }
+        val route = ConnectStateStore.getRoutePreference(this)
+        if (route == RoutePreference.LOCAL_ONLY) {
+            Toast.makeText(this, R.string.pay_terminal_pick_route_hint, Toast.LENGTH_LONG).show()
+            return
+        }
+        onPay(method = null)
+    }
+
+    private fun onPay(method: String?) {
         if (orderItems.isEmpty()) {
             Toast.makeText(this, R.string.order_empty, Toast.LENGTH_SHORT).show()
             return
@@ -190,7 +204,8 @@ class MainActivity : AppCompatActivity() {
         val remark = orderItems.groupingBy { it.name }.eachCount()
             .entries.joinToString(", ") { (name, count) -> "$count x $name" }
 
-        appendSdkStatus("Pay requested — order=$orderId method=$method amount=${totalCents / 100.0}")
+        val methodLabel = method ?: "(terminal picks)"
+        appendSdkStatus("Pay requested — order=$orderId method=$methodLabel amount=${totalCents / 100.0}")
 
         POSRouter.pay(
             this,
