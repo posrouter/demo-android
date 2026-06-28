@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="lensing_ready">#22C55E</color>
+    <color name="lensing_connecting">#F59E0B</color>
+    <color name="lensing_error">#EF4444</color>
+    <color name="lensing_offline">#94A3B8</color>
+</resources>

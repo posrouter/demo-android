@@ -106,7 +106,7 @@ gpr.key=ghp_...
 **4. Set SDK version** in `gradle.properties`:
 
 ```properties
-posrouterVersion=1.0.2
+posrouterVersion=1.6.3
 ```
 
 **5. Build**
@@ -137,7 +137,7 @@ dependencyResolutionManagement {
 ```kotlin
 // app/build.gradle.kts
 dependencies {
-    implementation("com.posrouter:posrouter:1.0.2")
+    implementation("com.posrouter:posrouter:1.6.3")
 }
 ```
 
@@ -153,9 +153,54 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 ## Typical integration flow (shown in code)
 
 1. `POSRouter.initialize(context, config)`
-2. `POSRouter.connect()` — Gateway/NATS (+ local Ezypos connect when applicable)
-3. `POSRouter.pay(request, callback)` — local acquirer or NATS to terminal
-4. Optional: `POSRouter.voidPayment(orderId)` while pay is in flight — publishes `.void` to the terminal; pay callback completes with `CANCELLED` and `cancelReason=initiator_void`
-5. Handle `gomenu://pay_result` callback / await pay callback for final status
+2. `POSRouter.setTerminalListener(...)` — Lensing status dot / remote-pay gating (see below)
+3. `POSRouter.connect()` — Gateway/Lensing (+ local Ezypos connect when applicable)
+4. `POSRouter.pay(request, callback)` — local acquirer or Lensing to terminal
+5. Optional: `POSRouter.voidPayment(orderId)` while pay is in flight — publishes `.void` to the terminal; pay callback completes with `CANCELLED` and `cancelReason=initiator_void`
+6. Handle `gomenu://pay_result` callback / await pay callback for final status
 
 See `DemoConfig.kt` and `MainActivity.kt`.
+
+## Lensing connection status
+
+The SDK exposes **Lensing** (Gateway / NATS) readiness — separate from local Ezypos.
+
+**Push (UI updates):**
+
+```kotlin
+POSRouter.setTerminalListener(object : POSRouterTerminalListener {
+    override fun onLensingStateChanged(state: LensingConnectionState) {
+        lensingDot.background = GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            setColor(POSRouter.lensingIndicatorColor(state))
+        }
+    }
+})
+```
+
+**Pull (before pay / void):**
+
+```kotlin
+if (POSRouter.currentLensingState() != LensingConnectionState.CONNECTED) {
+    showOfflineMessage()
+    return
+}
+```
+
+Canonical indicator colors are defined in the SDK (`LensingConnectionIndicator`) so demo, kiosk, and partner apps stay consistent.
+
+Detailed guide: [../sdk-android/docs/integration-lensing-status.md](../sdk-android/docs/integration-lensing-status.md)
+
+## SDK upgrade (1.6.3+)
+
+If you integrated on SDK **≤ 1.0.2**, update code when replacing the AAR — not a drop-in swap:
+
+| Old | New |
+|---|---|
+| `NatsConnectionState` | `LensingConnectionState` |
+| `onNatsStateChanged` | `onLensingStateChanged` |
+| `currentNatsState()` | `currentLensingState()` |
+
+Migration checklist: [../sdk-android/docs/MIGRATION.md](../sdk-android/docs/MIGRATION.md)
+
+Bump Maven / AAR to **1.6.3** or newer. Version scheme: [../sdk-android/docs/VERSIONING.md](../sdk-android/docs/VERSIONING.md).

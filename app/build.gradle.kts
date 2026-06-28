@@ -15,7 +15,7 @@ fun loadProperty(key: String, default: String): String {
 
 val useCompositeSdk = loadProperty("useCompositeSdk", "false").toBoolean()
 val useMavenSdk = loadProperty("useMavenSdk", "false").toBoolean()
-val posrouterVersion = loadProperty("posrouterVersion", "1.0.2")
+val posrouterVersion = loadProperty("posrouterVersion", "1.6.3")
 
 val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
@@ -32,6 +32,11 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
+        buildConfigField(
+            "String",
+            "PARTICIPANT_CODE",
+            "\"${localProperties.getProperty("PARTICIPANT_CODE", "GPOS")}\""
+        )
         buildConfigField(
             "String",
             "PARTICIPANT_KEY",

@@ -36,13 +36,12 @@ object ConnectStateStore {
         terminalId: String,
         merchantId: String,
         routePreference: String
-    ) {
+    ): Boolean =
         prefs(context).edit()
             .putString(KEY_TERMINAL_ID, terminalId)
             .putString(KEY_MERCHANT_ID, merchantId)
             .putString(KEY_ROUTE_PREFERENCE, routePreference)
-            .apply()
-    }
+            .commit()
 
     private fun prefs(context: Context) =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)

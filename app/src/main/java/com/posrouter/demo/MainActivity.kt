@@ -1,13 +1,20 @@
 package com.posrouter.demo
 
+import android.animation.ObjectAnimator
+import android.animation.ValueAnimator
 import android.content.res.ColorStateList
 import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.os.SystemClock
+import android.os.Handler
+import android.os.Looper
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.animation.AccelerateDecelerateInterpolator
 import android.widget.ArrayAdapter
 import android.widget.ScrollView
 import android.widget.Button
@@ -23,12 +30,14 @@ import com.google.android.material.color.MaterialColors
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.textfield.TextInputEditText
 import com.posrouter.LocalRouteMethod
-import com.posrouter.NatsConnectionState
+import com.posrouter.LensingConnectionIndicator
+import com.posrouter.LensingConnectionState
 import com.posrouter.PaymentCancelReason
 import com.posrouter.RoutePreference
 import com.posrouter.POSRouter
 import com.posrouter.POSRouterCallback
 import com.posrouter.POSRouterError
+import com.posrouter.POSRouterTerminalListener
 import com.posrouter.PaymentRequest
 import com.posrouter.PaymentResult
 import com.posrouter.PaymentStatus
@@ -42,12 +51,32 @@ class MainActivity : AppCompatActivity() {
     private lateinit var orderSummary: TextView
     private lateinit var totalAmount: TextView
     private lateinit var sdkStatus: TextView
+    private lateinit var lensingStatusLabel: TextView
+    private lateinit var lensingStatusDot: View
+    private lateinit var lensingStatusContainer: View
+    private var lensingStatusLabelPinned = false
+    private var appliedLensingState: LensingConnectionState? = null
+    private var lensingDotPulseAnimator: ObjectAnimator? = null
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var pendingLensingState: LensingConnectionState? = null
+    private val applyLensingStatusRunnable = Runnable {
+        val state = pendingLensingState ?: return@Runnable
+        if (isFinishing || isDestroyed) return@Runnable
+        applyLensingStatus(state)
+    }
     private lateinit var btnConnect: MaterialButton
     private lateinit var btnVoidPayment: MaterialButton
     private var orderCounter = 1
     private var pendingOrderId: String? = null
     private var voidInProgress = false
     private var isConnected = false
+    private var pausedAtElapsedMs = 0L
+
+    private val terminalListener = object : POSRouterTerminalListener {
+        override fun onLensingStateChanged(state: LensingConnectionState) {
+            updateLensingStatus(state)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -58,6 +87,7 @@ class MainActivity : AppCompatActivity() {
             pendingOrderId = savedInstanceState.getString(STATE_PENDING_ORDER_ID)
             voidInProgress = savedInstanceState.getBoolean(STATE_VOID_IN_PROGRESS, false)
             isConnected = savedInstanceState.getBoolean(STATE_EZYPOS_CONNECTED, false)
+            lensingStatusLabelPinned = savedInstanceState.getBoolean(STATE_LENSING_LABEL_PINNED, false)
         } else {
             isConnected = ConnectStateStore.isEzyposConnected(this)
         }
@@ -67,8 +97,16 @@ class MainActivity : AppCompatActivity() {
         orderSummary = findViewById(R.id.orderSummary)
         totalAmount = findViewById(R.id.totalAmount)
         sdkStatus = findViewById(R.id.sdkStatus)
+        lensingStatusLabel = findViewById(R.id.lensingStatusLabel)
+        lensingStatusDot = findViewById(R.id.lensingStatusDot)
+        lensingStatusContainer = findViewById(R.id.lensingStatusContainer)
+        lensingStatusContainer.setOnClickListener {
+            lensingStatusLabelPinned = true
+            lensingStatusLabel.visibility = View.VISIBLE
+        }
         btnConnect = findViewById(R.id.btnConnect)
         btnVoidPayment = findViewById(R.id.btnVoidPayment)
+        POSRouter.setTerminalListener(terminalListener)
         listOf(
             R.id.btnPayTerminalPick,
             R.id.btnPayCard,
@@ -77,6 +115,7 @@ class MainActivity : AppCompatActivity() {
             R.id.btnVoidPayment
         ).forEach { id -> compactPayButton(findViewById(id)) }
         applyConnectButtonStyle()
+        updateLensingStatus(POSRouter.currentLensingState())
         updateVoidButtonState()
 
         findViewById<RecyclerView>(R.id.productList).apply {
@@ -98,12 +137,20 @@ class MainActivity : AppCompatActivity() {
         handlePayResultIntent(intent)
     }
 
+    override fun onDestroy() {
+        mainHandler.removeCallbacks(applyLensingStatusRunnable)
+        stopLensingDotPulse()
+        POSRouter.setTerminalListener(null)
+        super.onDestroy()
+    }
+
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         outState.putInt(STATE_ORDER_COUNTER, orderCounter)
         outState.putString(STATE_PENDING_ORDER_ID, pendingOrderId)
         outState.putBoolean(STATE_VOID_IN_PROGRESS, voidInProgress)
         outState.putBoolean(STATE_EZYPOS_CONNECTED, isConnected)
+        outState.putBoolean(STATE_LENSING_LABEL_PINNED, lensingStatusLabelPinned)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -112,18 +159,38 @@ class MainActivity : AppCompatActivity() {
         handlePayResultIntent(intent)
     }
 
+    override fun onPause() {
+        pausedAtElapsedMs = SystemClock.elapsedRealtime()
+        super.onPause()
+    }
+
     override fun onResume() {
         super.onResume()
+        val backgroundMs = if (pausedAtElapsedMs > 0L) {
+            SystemClock.elapsedRealtime() - pausedAtElapsedMs
+        } else {
+            0L
+        }
+        POSRouter.refreshLensingConnection(backgroundMs)
+        mainHandler.removeCallbacks(applyLensingStatusRunnable)
+        applyLensingStatus(POSRouter.currentLensingState())
     }
 
     private fun showConnectOptionsDialog() {
         val dialogView = layoutInflater.inflate(R.layout.dialog_connect_options, null)
         val terminalInput = dialogView.findViewById<TextInputEditText>(R.id.inputTerminalId)
         val merchantInput = dialogView.findViewById<TextInputEditText>(R.id.inputMerchantId)
+        val participantCodeDisplay = dialogView.findViewById<TextInputEditText>(R.id.displayParticipantCode)
+        val participantKeyDisplay = dialogView.findViewById<TextInputEditText>(R.id.displayParticipantKey)
         val routeSpinner = dialogView.findViewById<Spinner>(R.id.routePreferenceSpinner)
 
         terminalInput.setText(ConnectStateStore.getTerminalId(this))
         merchantInput.setText(ConnectStateStore.getMerchantId(this))
+        participantCodeDisplay.setText(DemoConfig.participantCode())
+        participantKeyDisplay.setText(
+            DemoConfig.participantKey().takeIf { it.isNotBlank() }?.let { SecretMask.maskMiddle(it) }
+                ?: getString(R.string.connect_participant_key_missing)
+        )
 
         val routeLabels = resources.getStringArray(R.array.route_preference_labels)
         val routeValues = resources.getStringArray(R.array.route_preference_values)
@@ -140,8 +207,13 @@ class MainActivity : AppCompatActivity() {
             .setTitle(R.string.connect_options_title)
             .setView(dialogView)
             .setNegativeButton(android.R.string.cancel, null)
-            .setPositiveButton(R.string.btn_connect, null)
+            .setPositiveButton(R.string.btn_save_and_connect, null)
             .create()
+
+        dialogView.findViewById<MaterialButton>(R.id.btnReconnectLensing).setOnClickListener {
+            dialog.dismiss()
+            reconnectLensingOnly()
+        }
 
         dialog.setOnShowListener {
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
@@ -151,42 +223,64 @@ class MainActivity : AppCompatActivity() {
                     Toast.makeText(this, R.string.connect_missing_fields, Toast.LENGTH_SHORT).show()
                     return@setOnClickListener
                 }
+                if (DemoConfig.participantKey().isBlank()) {
+                    Toast.makeText(this, R.string.connect_participant_not_configured, Toast.LENGTH_LONG).show()
+                    return@setOnClickListener
+                }
                 val routePreference = routeValues.getOrElse(routeSpinner.selectedItemPosition) {
                     RoutePreference.AUTO
                 }
-                ConnectStateStore.saveConnectSettings(
-                    this,
-                    terminalId,
-                    merchantId,
-                    routePreference
-                )
+                if (!ConnectStateStore.saveConnectSettings(
+                        this,
+                        terminalId,
+                        merchantId,
+                        routePreference
+                    )
+                ) {
+                    Toast.makeText(this, R.string.connect_save_failed, Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
                 dialog.dismiss()
-                performConnect(terminalId, merchantId, routePreference)
+                performConnect()
             }
         }
         dialog.show()
     }
 
-    private fun performConnect(terminalId: String, merchantId: String, routePreference: String) {
+    private fun performConnect() {
+        val terminalId = ConnectStateStore.getTerminalId(this)
+        val merchantId = ConnectStateStore.getMerchantId(this)
+        val participantCode = DemoConfig.participantCode()
+        val routePreference = ConnectStateStore.getRoutePreference(this)
         POSRouter.initialize(this, DemoConfig.routerConfig(terminalId, merchantId))
+        POSRouter.reconnectLensing()
         appendSdkStatus(
-            "Connect requested — terminal=$terminalId merchant=$merchantId route=$routePreference"
+            "Connect requested — participant=$participantCode terminal=$terminalId merchant=$merchantId route=$routePreference"
         )
+        if (POSRouter.currentLensingState() != LensingConnectionState.CONNECTED) {
+            appendSdkStatus(getString(R.string.connect_waiting_lensing))
+        }
         POSRouter.connect(
             this,
             routerCallback { result, error ->
                 when {
                     result != null -> reportConnectResult(result)
-                    error != null -> appendSdkStatus("Connect error [${error.code}]: ${error.message}")
+                    error != null && error.code != "CONNECTING" ->
+                        appendSdkStatus("Connect error [${error.code}]: ${error.message}")
                 }
             },
             routePreference = routePreference
         )
     }
 
+    private fun reconnectLensingOnly() {
+        appendSdkStatus(getString(R.string.connect_reconnect_lensing))
+        POSRouter.reconnectLensing()
+    }
+
     private fun onPayTerminalPick() {
-        if (POSRouter.currentNatsState() != NatsConnectionState.CONNECTED) {
-            Toast.makeText(this, R.string.pay_terminal_pick_nats_offline, Toast.LENGTH_LONG).show()
+        if (POSRouter.currentLensingState() != LensingConnectionState.CONNECTED) {
+            Toast.makeText(this, R.string.pay_terminal_pick_lensing_offline, Toast.LENGTH_LONG).show()
             return
         }
         val route = ConnectStateStore.getRoutePreference(this)
@@ -248,9 +342,9 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, R.string.void_already_in_progress, Toast.LENGTH_SHORT).show()
             return
         }
-        if (POSRouter.currentNatsState() != NatsConnectionState.CONNECTED) {
-            appendSdkStatus(getString(R.string.void_failed_nats))
-            Toast.makeText(this, R.string.void_failed_nats, Toast.LENGTH_LONG).show()
+        if (POSRouter.currentLensingState() != LensingConnectionState.CONNECTED) {
+            appendSdkStatus(getString(R.string.void_failed_lensing))
+            Toast.makeText(this, R.string.void_failed_lensing, Toast.LENGTH_LONG).show()
             return
         }
 
@@ -275,13 +369,79 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun updateLensingStatus(state: LensingConnectionState) {
+        if (!::lensingStatusDot.isInitialized) return
+        pendingLensingState = state
+        mainHandler.removeCallbacks(applyLensingStatusRunnable)
+        if (isFinishing || isDestroyed) return
+        mainHandler.postDelayed(applyLensingStatusRunnable, LENSING_STATUS_DEBOUNCE_MS)
+    }
+
+    private fun applyLensingStatus(state: LensingConnectionState) {
+        if (!::lensingStatusDot.isInitialized || isFinishing || isDestroyed) return
+        if (state == appliedLensingState) return
+        appliedLensingState = state
+        val labelRes = when (state) {
+            LensingConnectionState.CONNECTED -> R.string.lensing_label_connected
+            LensingConnectionState.DISCOVERING,
+            LensingConnectionState.CONNECTING,
+            LensingConnectionState.RECONNECTING -> R.string.lensing_label_connecting
+            LensingConnectionState.FAILED -> R.string.lensing_label_failed
+            LensingConnectionState.OFFLINE -> R.string.lensing_label_offline
+        }
+        lensingStatusLabel.setText(labelRes)
+        lensingStatusDot.background = GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            setColor(POSRouter.lensingIndicatorColor(state))
+        }
+        updateLensingDotPulse(isLensingConnecting(state))
+        lensingStatusLabel.visibility = if (lensingStatusLabelPinned) View.VISIBLE else View.GONE
+    }
+
+    private fun isLensingConnecting(state: LensingConnectionState): Boolean = when (state) {
+        LensingConnectionState.DISCOVERING,
+        LensingConnectionState.CONNECTING,
+        LensingConnectionState.RECONNECTING -> true
+        else -> false
+    }
+
+    private fun updateLensingDotPulse(connecting: Boolean) {
+        if (connecting) {
+            if (lensingDotPulseAnimator?.isRunning == true) return
+            stopLensingDotPulse()
+            lensingStatusDot.alpha = LensingConnectionIndicator.PULSE_ALPHA_MAX
+            lensingDotPulseAnimator = ObjectAnimator.ofFloat(
+                lensingStatusDot,
+                View.ALPHA,
+                LensingConnectionIndicator.PULSE_ALPHA_MAX,
+                LensingConnectionIndicator.PULSE_ALPHA_MIN
+            ).apply {
+                duration = LensingConnectionIndicator.PULSE_HALF_CYCLE_MS
+                repeatMode = ValueAnimator.REVERSE
+                repeatCount = ValueAnimator.INFINITE
+                interpolator = AccelerateDecelerateInterpolator()
+                start()
+            }
+        } else {
+            stopLensingDotPulse()
+        }
+    }
+
+    private fun stopLensingDotPulse() {
+        lensingDotPulseAnimator?.cancel()
+        lensingDotPulseAnimator = null
+        if (::lensingStatusDot.isInitialized) {
+            lensingStatusDot.alpha = LensingConnectionIndicator.PULSE_ALPHA_MAX
+        }
+    }
+
     private fun reportConnectResult(result: PaymentResult) {
         val route = routeLabel(result.localRouteMethod)
         when (result.localRouteMethod) {
             LocalRouteMethod.NETWORK -> {
                 appendSdkStatus(
                     buildString {
-                        append(getString(R.string.connect_nats_ready))
+                        append(getString(R.string.connect_lensing_ready))
                         if (route != null) append("\n  $route")
                         result.message?.let { append("\n  $it") }
                     }
@@ -448,7 +608,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun appendSdkStatus(line: String) {
         val time = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
-        val entry = "[$time] $line"
+        val entry = "[$time] ${normalizeSdkStatusLine(line)}"
         val current = sdkStatus.text?.toString().orEmpty()
         sdkStatus.text = if (current == getString(R.string.sdk_status_hint)) {
             entry
@@ -459,6 +619,10 @@ class MainActivity : AppCompatActivity() {
             (sdkStatus.parent as? ScrollView)?.fullScroll(View.FOCUS_DOWN)
         }
     }
+
+    private fun normalizeSdkStatusLine(line: String): String =
+        line.replace(Regex("\\bNATS\\b", RegexOption.IGNORE_CASE), "Lensing")
+            .replace("Network track connected", "Lensing connected")
 
     private fun routeLabel(method: LocalRouteMethod?): String? = when (method) {
         LocalRouteMethod.EXPLICIT_INTENT -> getString(R.string.route_explicit_intent)
@@ -535,5 +699,7 @@ class MainActivity : AppCompatActivity() {
         private const val STATE_PENDING_ORDER_ID = "pending_order_id"
         private const val STATE_VOID_IN_PROGRESS = "void_in_progress"
         private const val STATE_EZYPOS_CONNECTED = "ezypos_connected"
+        private const val STATE_LENSING_LABEL_PINNED = "lensing_label_pinned"
+        private const val LENSING_STATUS_DEBOUNCE_MS = 300L
     }
 }

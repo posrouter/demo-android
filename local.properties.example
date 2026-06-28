@@ -1,7 +1,8 @@
 sdk.dir=C\:\\Users\\YOUR_USER\\AppData\\Local\\Android\\Sdk
 
 # Alliance participant: GPOS (ordering / initiator A-side)
-# Gateway /init uses code=GPOS + this key → TOKEN_GPOS_*
+# Gateway /init uses code + key → NATS token
+PARTICIPANT_CODE=GPOS
 PARTICIPANT_KEY=
 
 # Must match posrouter-kiosk on the same lane

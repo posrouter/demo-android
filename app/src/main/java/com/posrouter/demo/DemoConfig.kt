@@ -6,8 +6,10 @@ import com.posrouter.POSRouterConfig
 import com.posrouter.PaymentRequest
 
 object DemoConfig {
-    /** A-side ordering identity for Gateway `/init` (NATS auth). Not the same as [ACQUIRER_CODE]. */
-    const val PARTICIPANT_CODE = "GPOS"
+    /** A-side ordering identity for Gateway `/init` (NATS auth). Loaded from `local.properties`. */
+    fun participantCode(): String = BuildConfig.PARTICIPANT_CODE.trim().ifBlank { "GPOS" }
+
+    fun participantKey(): String = BuildConfig.PARTICIPANT_KEY
     const val ACQUIRER_CODE = "SUPY"
     const val ACQUIRER_PACKAGE = "ezypay.com.globe.cardpos"
     const val CALLBACK_URL = "gomenu://pay_result"
@@ -24,8 +26,8 @@ object DemoConfig {
         )
 
     fun routerConfig(terminalId: String, merchantId: String) = POSRouterConfig(
-        participantCode = PARTICIPANT_CODE,
-        participantKey = BuildConfig.PARTICIPANT_KEY,
+        participantCode = participantCode(),
+        participantKey = participantKey(),
         terminalId = terminalId,
         acquirerCode = ACQUIRER_CODE,
         merchantId = merchantId,
