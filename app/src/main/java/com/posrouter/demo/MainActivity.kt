@@ -69,6 +69,13 @@ class MainActivity : AppCompatActivity() {
         sdkStatus = findViewById(R.id.sdkStatus)
         btnConnect = findViewById(R.id.btnConnect)
         btnVoidPayment = findViewById(R.id.btnVoidPayment)
+        listOf(
+            R.id.btnPayTerminalPick,
+            R.id.btnPayCard,
+            R.id.btnPayQr,
+            R.id.btnPaySkyzer,
+            R.id.btnVoidPayment
+        ).forEach { id -> compactPayButton(findViewById(id)) }
         applyConnectButtonStyle()
         updateVoidButtonState()
 
@@ -84,7 +91,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnPayCard).setOnClickListener { onPay(DemoConfig.PAY_METHOD_CARD) }
         findViewById<Button>(R.id.btnPayQr).setOnClickListener { onPay(DemoConfig.PAY_METHOD_QR) }
         findViewById<Button>(R.id.btnPaySkyzer).setOnClickListener { onPay(DemoConfig.PAY_METHOD_SKYZER) }
-        findViewById<MaterialButton>(R.id.btnPayTerminalPick).setOnClickListener { onPayTerminalPick() }
+        findViewById<Button>(R.id.btnPayTerminalPick).setOnClickListener { onPayTerminalPick() }
         findViewById<MaterialButton>(R.id.btnClearOrder).setOnClickListener { clearOrder() }
         btnVoidPayment.setOnClickListener { onVoidPayment() }
 
@@ -187,7 +194,7 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, R.string.pay_terminal_pick_route_hint, Toast.LENGTH_LONG).show()
             return
         }
-        onPay(method = null)
+        onPay(method = DemoConfig.PAY_METHOD_SELECTION)
     }
 
     private fun onPay(method: String?) {
@@ -299,6 +306,11 @@ class MainActivity : AppCompatActivity() {
         ConnectStateStore.setEzyposConnected(this, true)
         appendSdkStatus(getString(R.string.connect_ezypos_confirmed))
         applyConnectButtonStyle()
+    }
+
+    private fun compactPayButton(button: MaterialButton) {
+        button.insetTop = 0
+        button.insetBottom = 0
     }
 
     private fun applyConnectButtonStyle() {

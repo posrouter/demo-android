@@ -6,7 +6,7 @@ data class Product(
 )
 
 val ICE_CREAM_MENU = listOf(
-    Product("Vanilla", 450),
+    Product("Vanilla", 430),
     Product("Chocolate", 450),
     Product("Strawberry", 500),
     Product("Mini Scoop", 50),

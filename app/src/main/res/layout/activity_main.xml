@@ -39,53 +39,64 @@
         android:layout_marginTop="12dp"
         android:layout_weight="1" />
 
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnPayTerminalPick"
+        style="@style/Widget.Demo.PayButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="@string/btn_pay_terminal_pick" />
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
+        android:layout_marginTop="8dp"
+        android:baselineAligned="false"
         android:orientation="horizontal">
 
-        <Button
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/btnPayCard"
+            style="@style/Widget.Demo.PayButton"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginEnd="8dp"
             android:layout_weight="1"
             android:text="@string/btn_pay_card" />
 
-        <Button
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/btnPayQr"
+            style="@style/Widget.Demo.PayButton"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="@string/btn_pay_qr" />
     </LinearLayout>
 
-    <Button
-        android:id="@+id/btnPaySkyzer"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:text="@string/btn_pay_skyzer" />
+        android:baselineAligned="false"
+        android:orientation="horizontal">
 
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btnPayTerminalPick"
-        style="?attr/materialButtonOutlinedStyle"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:text="@string/btn_pay_terminal_pick"
-        app:strokeWidth="1dp" />
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnPaySkyzer"
+            style="@style/Widget.Demo.PayButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="8dp"
+            android:layout_weight="1"
+            android:text="@string/btn_pay_skyzer" />
 
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btnVoidPayment"
-        style="?attr/materialButtonOutlinedStyle"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:enabled="false"
-        android:text="@string/btn_void_payment"
-        app:strokeWidth="1dp" />
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnVoidPayment"
+            style="@style/Widget.Demo.PayButton.Outlined"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:enabled="false"
+            android:text="@string/btn_void_payment" />
+    </LinearLayout>
 
     <LinearLayout
         android:layout_width="match_parent"

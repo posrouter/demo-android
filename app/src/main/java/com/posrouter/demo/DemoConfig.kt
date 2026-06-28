@@ -15,6 +15,7 @@ object DemoConfig {
     const val PAY_METHOD_CARD = "emv_card"
     const val PAY_METHOD_QR = "show_qr_code"
     const val PAY_METHOD_SKYZER = PaymentRequest.METHOD_SKYZER
+    const val PAY_METHOD_SELECTION = PaymentRequest.METHOD_SELECTION
 
     fun routerConfig(context: Context): POSRouterConfig =
         routerConfig(

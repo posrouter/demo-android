@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">POSRouter Demo</string>
-    <string name="app_title">Ice Cream Menu</string>
+    <string name="app_name">Demo Ordering - POS Router</string>
+    <string name="app_title">Ice Cream Dream Shop</string>
     <string name="order_label">Current Order</string>
     <string name="order_empty_hint">Tap + to add items</string>
     <string name="order_empty">Add at least one item before paying</string>
@@ -10,7 +10,7 @@
     <string name="price_format">$%.2f</string>
     <string name="btn_add">+</string>
     <string name="btn_clear">Clear</string>
-    <string name="btn_void_payment">Void payment on terminal</string>
+    <string name="btn_void_payment">VOID</string>
     <string name="btn_void_waiting">Voiding…</string>
     <string name="btn_connect">Connect</string>
     <string name="connect_options_title">Connect options</string>
