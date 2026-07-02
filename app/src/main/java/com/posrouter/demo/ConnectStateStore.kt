@@ -9,6 +9,16 @@ object ConnectStateStore {
     private const val KEY_TERMINAL_ID = "terminal_id"
     private const val KEY_MERCHANT_ID = "merchant_id"
     private const val KEY_ROUTE_PREFERENCE = "route_preference"
+    private const val KEY_KIOSK_PARTNER_CONNECTED = "kiosk_partner_connected"
+
+    fun isKioskPartnerConnected(context: Context): Boolean =
+        prefs(context).getBoolean(KEY_KIOSK_PARTNER_CONNECTED, false)
+
+    fun setKioskPartnerConnected(context: Context, connected: Boolean) {
+        prefs(context).edit()
+            .putBoolean(KEY_KIOSK_PARTNER_CONNECTED, connected)
+            .apply()
+    }
 
     fun isEzyposConnected(context: Context): Boolean =
         prefs(context).getBoolean(KEY_EZYPOS_CONNECTED, false)

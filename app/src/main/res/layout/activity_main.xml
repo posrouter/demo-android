@@ -48,13 +48,30 @@
         android:layout_marginTop="8dp"
         android:text="@string/btn_pay_terminal_pick" />
 
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btnPayKioskLocal"
-        style="@style/Widget.Demo.PayButton.Outlined"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:text="@string/btn_pay_kiosk_local" />
+        android:baselineAligned="false"
+        android:orientation="horizontal">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnKioskConnect"
+            style="@style/Widget.Demo.PayButton.Outlined"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="8dp"
+            android:layout_weight="1"
+            android:text="@string/btn_kiosk_connect" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnKioskCharge"
+            style="@style/Widget.Demo.PayButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/btn_kiosk_charge" />
+    </LinearLayout>
 
     <LinearLayout
         android:layout_width="match_parent"

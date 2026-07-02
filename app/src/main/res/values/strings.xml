@@ -44,8 +44,13 @@
     <string name="btn_pay_qr">Pay (QR Code)</string>
     <string name="btn_pay_skyzer">Pay (Skyzer)</string>
     <string name="btn_pay_terminal_pick">Pay (remote kiosk picks method)</string>
-    <string name="btn_pay_kiosk_local">Pay (kiosk menu, same device)</string>
-    <string name="pay_kiosk_local_launching">Opening kiosk payment menu…</string>
+    <string name="btn_kiosk_connect">Kiosk connect</string>
+    <string name="btn_kiosk_connected">Kiosk OK</string>
+    <string name="btn_kiosk_charge">Kiosk charge</string>
+    <string name="pay_kiosk_connect_launching">Registering with kiosk…</string>
+    <string name="pay_kiosk_connect_ok">Kiosk partner registered — callback=%s</string>
+    <string name="pay_kiosk_charge_launching">Opening kiosk payment menu…</string>
+    <string name="pay_kiosk_connect_first">Tap Kiosk connect once before charge</string>
     <string name="pay_kiosk_local_not_installed">POSRouter Kiosk is not installed on this device</string>
     <string name="pay_terminal_pick_route_hint">Use Connect → Remote only (or Remote first) so pay goes to the kiosk</string>
     <string name="pay_terminal_pick_lensing_offline">Lensing offline — use Setup with a remote route first</string>

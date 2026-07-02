@@ -8,8 +8,8 @@ import com.posrouter.PaymentResult
 /**
  * Demo POS deeplinks — same partner role as GoMenu, with demo's own scheme.
  *
- * - Register: [buildKioskConnectUri] → stores demo scheme in kiosk connect bucket
- * - Launch kiosk: [buildKioskChargeUri] → optional `callback_url` or `partner_scheme`; else kiosk default from connect
+ * - [buildKioskConnectUri] — register once (`notify=0`, no bounce back to demo)
+ * - [buildKioskChargeUri] — repeat per payment (`partner_scheme` looks up connect bucket)
  * - Receive kiosk relay + Ezypos callbacks: [PAY_RESULT_URI]
  *
  * GoMenu integration is analogous using `gomenu://pay_result` on connect.
@@ -21,10 +21,15 @@ object DemoDeeplinks {
     const val PAY_RESULT_HOST = "pay_result"
     const val PAY_RESULT_URI = "${DemoConfig.DEEPLINK_SCHEME}://$PAY_RESULT_HOST"
 
-    fun buildKioskConnectUri(callbackUrl: String = DemoConfig.CALLBACK_URL): Uri =
-        Uri.parse("$KIOSK_SCHEME://$KIOSK_HOST_CONNECT").buildUpon()
-            .appendQueryParameter("callback_url", callbackUrl)
-            .build()
+    fun buildKioskConnectUri(
+        callbackUrl: String = DemoConfig.CALLBACK_URL,
+        notifyConnect: Boolean = false
+    ): Uri = Uri.parse("$KIOSK_SCHEME://$KIOSK_HOST_CONNECT").buildUpon()
+        .appendQueryParameter("callback_url", callbackUrl)
+        .apply {
+            if (!notifyConnect) appendQueryParameter("notify", "0")
+        }
+        .build()
 
     fun buildKioskChargeUri(
         orderId: String,
@@ -32,7 +37,7 @@ object DemoDeeplinks {
         currency: String,
         remark: String?,
         method: String = PaymentRequest.METHOD_SELECTION,
-        callbackUrl: String? = null,
+        callbackUrl: String = DemoConfig.CALLBACK_URL,
         partnerScheme: String = DemoConfig.DEEPLINK_SCHEME
     ): Uri = Uri.parse("$KIOSK_SCHEME://$KIOSK_HOST_CHARGE").buildUpon()
         .appendQueryParameter("amount", amountCents.toString())
@@ -40,9 +45,9 @@ object DemoDeeplinks {
         .appendQueryParameter("orderid", orderId)
         .appendQueryParameter("method", method)
         .appendQueryParameter("partner_scheme", partnerScheme)
+        .appendQueryParameter("callback_url", callbackUrl)
         .apply {
             remark?.takeIf { it.isNotBlank() }?.let { appendQueryParameter("remark", it) }
-            callbackUrl?.takeIf { it.isNotBlank() }?.let { appendQueryParameter("callback_url", it) }
         }
         .build()
 
