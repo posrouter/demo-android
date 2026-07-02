@@ -696,6 +696,25 @@ class MainActivity : AppCompatActivity() {
         }
 
         val orderId = data.getQueryParameter("orderid") ?: data.getQueryParameter("orderId")
+        if (awaitingKioskRelay) {
+            if (orderId != pendingOrderId) {
+                appendSdkStatus("Ignored pay callback during kiosk charge — order mismatch")
+                clearLaunchIntent()
+                return
+            }
+            if (data.getQueryParameter("relay") != "kiosk") {
+                appendSdkStatus("Forwarding acquirer callback to kiosk — ${formatCallbackUri(data)}")
+                val forwarded = data.buildUpon()
+                    .scheme(DemoDeeplinks.KIOSK_SCHEME)
+                    .authority(DemoDeeplinks.PAY_RESULT_HOST)
+                    .build()
+                startActivity(Intent(Intent.ACTION_VIEW, forwarded))
+                clearLaunchIntent()
+                moveTaskToBack(true)
+                return
+            }
+        }
+
         val result = if (awaitingKioskRelay && orderId == pendingOrderId) {
             appendSdkStatus("Kiosk relay: ${formatCallbackUri(data)}")
             DemoDeeplinks.parsePartnerRelayResult(data)
