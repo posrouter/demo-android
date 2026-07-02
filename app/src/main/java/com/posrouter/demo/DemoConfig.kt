@@ -12,7 +12,8 @@ object DemoConfig {
     fun participantKey(): String = BuildConfig.PARTICIPANT_KEY
     const val ACQUIRER_CODE = "SUPY"
     const val ACQUIRER_PACKAGE = "ezypay.com.globe.cardpos"
-    const val CALLBACK_URL = "gomenu://pay_result"
+    const val DEEPLINK_SCHEME = "posrouter-pos-demo-android"
+    const val CALLBACK_URL = "$DEEPLINK_SCHEME://pay_result"
     const val CURRENCY = "NZD"
     const val PAY_METHOD_CARD = "emv_card"
     const val PAY_METHOD_QR = "show_qr_code"

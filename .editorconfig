@@ -1,0 +1,12 @@
+root = true
+
+[*]
+end_of_line = lf
+insert_final_newline = true
+charset = utf-8
+
+[*.{kt,kts,xml,gradle,properties,md,yml,yaml,json,gitattributes,gitignore}]
+indent_style = space
+
+[*.md]
+trim_trailing_whitespace = false

@@ -2,6 +2,7 @@ package com.posrouter.demo
 
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
+import android.content.ActivityNotFoundException
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
@@ -70,7 +71,17 @@ class MainActivity : AppCompatActivity() {
     private var pendingOrderId: String? = null
     private var voidInProgress = false
     private var isConnected = false
+    private var awaitingKioskRelay = false
+    private var awaitingKioskConnect = false
+    private var pendingKioskCharge: PendingKioskCharge? = null
     private var pausedAtElapsedMs = 0L
+
+    private data class PendingKioskCharge(
+        val orderId: String,
+        val amountCents: Long,
+        val currency: String,
+        val remark: String?
+    )
 
     private val terminalListener = object : POSRouterTerminalListener {
         override fun onLensingStateChanged(state: LensingConnectionState) {
@@ -87,6 +98,16 @@ class MainActivity : AppCompatActivity() {
             pendingOrderId = savedInstanceState.getString(STATE_PENDING_ORDER_ID)
             voidInProgress = savedInstanceState.getBoolean(STATE_VOID_IN_PROGRESS, false)
             isConnected = savedInstanceState.getBoolean(STATE_EZYPOS_CONNECTED, false)
+            awaitingKioskRelay = savedInstanceState.getBoolean(STATE_AWAITING_KIOSK_RELAY, false)
+            awaitingKioskConnect = savedInstanceState.getBoolean(STATE_AWAITING_KIOSK_CONNECT, false)
+            if (savedInstanceState.containsKey(STATE_PENDING_KIOSK_ORDER)) {
+                pendingKioskCharge = PendingKioskCharge(
+                    orderId = savedInstanceState.getString(STATE_PENDING_KIOSK_ORDER).orEmpty(),
+                    amountCents = savedInstanceState.getLong(STATE_PENDING_KIOSK_AMOUNT),
+                    currency = savedInstanceState.getString(STATE_PENDING_KIOSK_CURRENCY).orEmpty(),
+                    remark = savedInstanceState.getString(STATE_PENDING_KIOSK_REMARK)
+                )
+            }
             lensingStatusLabelPinned = savedInstanceState.getBoolean(STATE_LENSING_LABEL_PINNED, false)
         } else {
             isConnected = ConnectStateStore.isEzyposConnected(this)
@@ -109,6 +130,7 @@ class MainActivity : AppCompatActivity() {
         POSRouter.setTerminalListener(terminalListener)
         listOf(
             R.id.btnPayTerminalPick,
+            R.id.btnPayKioskLocal,
             R.id.btnPayCard,
             R.id.btnPayQr,
             R.id.btnPaySkyzer,
@@ -131,6 +153,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnPayQr).setOnClickListener { onPay(DemoConfig.PAY_METHOD_QR) }
         findViewById<Button>(R.id.btnPaySkyzer).setOnClickListener { onPay(DemoConfig.PAY_METHOD_SKYZER) }
         findViewById<Button>(R.id.btnPayTerminalPick).setOnClickListener { onPayTerminalPick() }
+        findViewById<Button>(R.id.btnPayKioskLocal).setOnClickListener { onPayKioskLocal() }
         findViewById<MaterialButton>(R.id.btnClearOrder).setOnClickListener { clearOrder() }
         btnVoidPayment.setOnClickListener { onVoidPayment() }
 
@@ -150,6 +173,14 @@ class MainActivity : AppCompatActivity() {
         outState.putString(STATE_PENDING_ORDER_ID, pendingOrderId)
         outState.putBoolean(STATE_VOID_IN_PROGRESS, voidInProgress)
         outState.putBoolean(STATE_EZYPOS_CONNECTED, isConnected)
+        outState.putBoolean(STATE_AWAITING_KIOSK_RELAY, awaitingKioskRelay)
+        outState.putBoolean(STATE_AWAITING_KIOSK_CONNECT, awaitingKioskConnect)
+        pendingKioskCharge?.let { charge ->
+            outState.putString(STATE_PENDING_KIOSK_ORDER, charge.orderId)
+            outState.putLong(STATE_PENDING_KIOSK_AMOUNT, charge.amountCents)
+            outState.putString(STATE_PENDING_KIOSK_CURRENCY, charge.currency)
+            outState.putString(STATE_PENDING_KIOSK_REMARK, charge.remark)
+        }
         outState.putBoolean(STATE_LENSING_LABEL_PINNED, lensingStatusLabelPinned)
     }
 
@@ -289,6 +320,77 @@ class MainActivity : AppCompatActivity() {
             return
         }
         onPay(method = DemoConfig.PAY_METHOD_SELECTION)
+    }
+
+    /**
+     * Same-device partner flow: connect to kiosk (register callback), then charge.
+     */
+    private fun onPayKioskLocal() {
+        if (orderItems.isEmpty()) {
+            Toast.makeText(this, R.string.order_empty, Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val totalCents = orderItems.sumOf { it.priceCents }
+        val orderId = nextOrderId()
+        pendingOrderId = orderId
+        voidInProgress = false
+        updateVoidButtonState()
+        val remark = orderItems.groupingBy { it.name }.eachCount()
+            .entries.joinToString(", ") { (name, count) -> "$count x $name" }
+
+        pendingKioskCharge = PendingKioskCharge(
+            orderId = orderId,
+            amountCents = totalCents,
+            currency = DemoConfig.CURRENCY,
+            remark = remark
+        )
+        awaitingKioskConnect = true
+        awaitingKioskRelay = false
+
+        val connectUri = DemoDeeplinks.buildKioskConnectUri()
+        appendSdkStatus("Kiosk connect — callback=${DemoDeeplinks.PAY_RESULT_URI}")
+        appendSdkStatus("Launch: $connectUri")
+
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, connectUri))
+            Toast.makeText(this, R.string.pay_kiosk_local_launching, Toast.LENGTH_SHORT).show()
+        } catch (_: ActivityNotFoundException) {
+            clearKioskLocalFlow()
+            Toast.makeText(this, R.string.pay_kiosk_local_not_installed, Toast.LENGTH_LONG).show()
+            appendSdkStatus(getString(R.string.pay_kiosk_local_not_installed))
+        }
+    }
+
+    private fun launchPendingKioskCharge() {
+        val pending = pendingKioskCharge ?: return
+        pendingKioskCharge = null
+        val chargeUri = DemoDeeplinks.buildKioskChargeUri(
+            orderId = pending.orderId,
+            amountCents = pending.amountCents,
+            currency = pending.currency,
+            remark = pending.remark
+        )
+        appendSdkStatus("Kiosk charge — order=${pending.orderId} amount=${pending.amountCents / 100.0}")
+        appendSdkStatus("Launch: $chargeUri")
+        appendSdkStatus("Await relay: ${DemoDeeplinks.PAY_RESULT_URI}")
+
+        try {
+            awaitingKioskRelay = true
+            startActivity(Intent(Intent.ACTION_VIEW, chargeUri))
+        } catch (_: ActivityNotFoundException) {
+            clearKioskLocalFlow()
+            Toast.makeText(this, R.string.pay_kiosk_local_not_installed, Toast.LENGTH_LONG).show()
+            appendSdkStatus(getString(R.string.pay_kiosk_local_not_installed))
+        }
+    }
+
+    private fun clearKioskLocalFlow() {
+        awaitingKioskConnect = false
+        awaitingKioskRelay = false
+        pendingKioskCharge = null
+        pendingOrderId = null
+        updateVoidButtonState()
     }
 
     private fun onPay(method: String?) {
@@ -495,6 +597,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun reportPayResult(result: PaymentResult) {
+        awaitingKioskRelay = false
+        awaitingKioskConnect = false
+        pendingKioskCharge = null
         voidInProgress = false
         val route = routeLabel(result.localRouteMethod)
         val cancelReason = result.metadata["cancelReason"]
@@ -558,33 +663,58 @@ class MainActivity : AppCompatActivity() {
 
     private fun handlePayResultIntent(intent: Intent?) {
         val data = intent?.data ?: return
-        if (data.scheme != "gomenu" || data.host != "pay_result") return
+        if (!DemoDeeplinks.isPayResultCallback(data)) return
 
         val type = data.getQueryParameter("type")?.uppercase(Locale.US).orEmpty()
         val status = data.getQueryParameter("status")?.uppercase(Locale.US).orEmpty()
 
-        appendSdkStatus("Ezypos callback: ${formatCallbackUri(data)}")
-
         if (type == "CONNECT") {
+            if (awaitingKioskConnect) {
+                awaitingKioskConnect = false
+                appendSdkStatus("Kiosk connect callback: ${formatCallbackUri(data)}")
+                if (status == "SUCCESS") {
+                    launchPendingKioskCharge()
+                } else {
+                    clearKioskLocalFlow()
+                    appendSdkStatus("Kiosk connect failed — status=$status")
+                }
+                clearLaunchIntent()
+                return
+            }
+            appendSdkStatus("Ezypos connect callback: ${formatCallbackUri(data)}")
             if (status == "SUCCESS") {
                 markEzyposConnected()
             } else {
                 clearEzyposConnected()
                 appendSdkStatus("Connect failed — status=$status")
             }
-            setIntent(Intent(this, javaClass))
+            clearLaunchIntent()
             return
         }
 
-        if (type == "PAY" || type.isEmpty()) {
-            val result = POSRouter.deliverAcquirerCallback(data)
-            if (result != null) {
-                reportPayResult(result)
-            } else {
-                appendSdkStatus("Pay callback received but could not parse result")
-            }
-            setIntent(Intent(this, javaClass))
+        if (type != "PAY" && type.isNotEmpty()) {
+            clearLaunchIntent()
+            return
         }
+
+        val orderId = data.getQueryParameter("orderid") ?: data.getQueryParameter("orderId")
+        val result = if (awaitingKioskRelay && orderId == pendingOrderId) {
+            appendSdkStatus("Kiosk relay: ${formatCallbackUri(data)}")
+            DemoDeeplinks.parsePartnerRelayResult(data)
+        } else {
+            appendSdkStatus("Ezypos callback: ${formatCallbackUri(data)}")
+            POSRouter.deliverAcquirerCallback(data)
+        }
+        if (result != null) {
+            reportPayResult(result)
+        } else {
+            appendSdkStatus("Pay callback received but could not parse result")
+        }
+        clearLaunchIntent()
+    }
+
+    private fun clearLaunchIntent() {
+        setIntent(Intent(this, javaClass))
     }
 
     private fun clearEzyposConnected() {
@@ -699,6 +829,12 @@ class MainActivity : AppCompatActivity() {
         private const val STATE_PENDING_ORDER_ID = "pending_order_id"
         private const val STATE_VOID_IN_PROGRESS = "void_in_progress"
         private const val STATE_EZYPOS_CONNECTED = "ezypos_connected"
+        private const val STATE_AWAITING_KIOSK_RELAY = "awaiting_kiosk_relay"
+        private const val STATE_AWAITING_KIOSK_CONNECT = "awaiting_kiosk_connect"
+        private const val STATE_PENDING_KIOSK_ORDER = "pending_kiosk_order"
+        private const val STATE_PENDING_KIOSK_AMOUNT = "pending_kiosk_amount"
+        private const val STATE_PENDING_KIOSK_CURRENCY = "pending_kiosk_currency"
+        private const val STATE_PENDING_KIOSK_REMARK = "pending_kiosk_remark"
         private const val STATE_LENSING_LABEL_PINNED = "lensing_label_pinned"
         private const val LENSING_STATUS_DEBOUNCE_MS = 300L
     }
