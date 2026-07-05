@@ -10,6 +10,7 @@ object ConnectStateStore {
     private const val KEY_MERCHANT_ID = "merchant_id"
     private const val KEY_ROUTE_PREFERENCE = "route_preference"
     private const val KEY_KIOSK_PARTNER_CONNECTED = "kiosk_partner_connected"
+    private const val KEY_KIOSK_RELAY_ORDER_ID = "kiosk_relay_order_id"
 
     fun isKioskPartnerConnected(context: Context): Boolean =
         prefs(context).getBoolean(KEY_KIOSK_PARTNER_CONNECTED, false)
@@ -18,6 +19,17 @@ object ConnectStateStore {
         prefs(context).edit()
             .putBoolean(KEY_KIOSK_PARTNER_CONNECTED, connected)
             .apply()
+    }
+
+    /** Survives process death while kiosk is collecting a payment method. */
+    fun getKioskRelayOrderId(context: Context): String? =
+        prefs(context).getString(KEY_KIOSK_RELAY_ORDER_ID, null)?.trim()?.takeIf { it.isNotEmpty() }
+
+    fun setKioskRelayOrderId(context: Context, orderId: String?) {
+        prefs(context).edit().apply {
+            if (orderId.isNullOrBlank()) remove(KEY_KIOSK_RELAY_ORDER_ID)
+            else putString(KEY_KIOSK_RELAY_ORDER_ID, orderId.trim())
+        }.apply()
     }
 
     fun isEzyposConnected(context: Context): Boolean =

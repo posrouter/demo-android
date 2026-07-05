@@ -357,6 +357,7 @@ class MainActivity : AppCompatActivity() {
 
         try {
             awaitingKioskRelay = true
+            ConnectStateStore.setKioskRelayOrderId(this, orderId)
             startActivity(Intent(Intent.ACTION_VIEW, chargeUri))
             Toast.makeText(this, R.string.pay_kiosk_charge_launching, Toast.LENGTH_SHORT).show()
         } catch (_: ActivityNotFoundException) {
@@ -376,6 +377,7 @@ class MainActivity : AppCompatActivity() {
     private fun clearKioskRelayFlow() {
         awaitingKioskRelay = false
         pendingOrderId = null
+        ConnectStateStore.setKioskRelayOrderId(this, null)
         updateVoidButtonState()
     }
 
@@ -610,6 +612,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun reportPayResult(result: PaymentResult) {
         awaitingKioskRelay = false
+        ConnectStateStore.setKioskRelayOrderId(this, null)
         voidInProgress = false
         val route = routeLabel(result.localRouteMethod)
         val cancelReason = result.metadata["cancelReason"]
@@ -696,12 +699,9 @@ class MainActivity : AppCompatActivity() {
         }
 
         val orderId = data.getQueryParameter("orderid") ?: data.getQueryParameter("orderId")
-        if (awaitingKioskRelay) {
-            if (orderId != pendingOrderId) {
-                appendSdkStatus("Ignored pay callback during kiosk charge — order mismatch")
-                clearLaunchIntent()
-                return
-            }
+        val kioskRelayOrderId = pendingKioskRelayOrderId()
+        val inKioskChargeFlow = kioskRelayOrderId != null && orderId == kioskRelayOrderId
+        if (inKioskChargeFlow) {
             if (data.getQueryParameter("relay") != "kiosk") {
                 appendSdkStatus("Forwarding acquirer callback to kiosk — ${formatCallbackUri(data)}")
                 val forwarded = data.buildUpon()
@@ -715,7 +715,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        val result = if (awaitingKioskRelay && orderId == pendingOrderId) {
+        val result = if (inKioskChargeFlow) {
             appendSdkStatus("Kiosk relay: ${formatCallbackUri(data)}")
             DemoDeeplinks.parsePartnerRelayResult(data)
         } else {
@@ -728,6 +728,11 @@ class MainActivity : AppCompatActivity() {
             appendSdkStatus("Pay callback received but could not parse result")
         }
         clearLaunchIntent()
+    }
+
+    private fun pendingKioskRelayOrderId(): String? {
+        pendingOrderId?.trim()?.takeIf { it.isNotEmpty() }?.let { return it }
+        return ConnectStateStore.getKioskRelayOrderId(this)
     }
 
     private fun clearLaunchIntent() {
