@@ -616,9 +616,11 @@ class MainActivity : AppCompatActivity() {
         voidInProgress = false
         val route = routeLabel(result.localRouteMethod)
         val cancelReason = result.metadata["cancelReason"]
+        val voidAck = isInitiatorVoidResult(result)
         appendSdkStatus(
             buildString {
-                append("Payment ${result.status}")
+                if (voidAck) append("Void acknowledged — payment cancelled")
+                else append("Payment ${result.status}")
                 result.orderId?.let { append(" — order=$it") }
                 if (route != null) append(" via $route")
                 cancelReason?.let { append("\n  cancelReason=$it") }
@@ -635,10 +637,16 @@ class MainActivity : AppCompatActivity() {
             orderItems.clear()
             refreshOrder()
         }
-        showPayResultDialog(result)
+        if (!isInitiatorVoidResult(result)) {
+            showPayResultDialog(result)
+        }
         pendingOrderId = null
         updateVoidButtonState()
     }
+
+    private fun isInitiatorVoidResult(result: PaymentResult): Boolean =
+        result.status == PaymentStatus.CANCELLED &&
+            result.metadata["cancelReason"] == PaymentCancelReason.INITIATOR_VOID
 
     private fun showPayResultDialog(result: PaymentResult) {
         val cancelReason = result.metadata["cancelReason"]
