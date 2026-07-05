@@ -23,9 +23,12 @@ object DemoDeeplinks {
 
     fun buildKioskConnectUri(
         callbackUrl: String = DemoConfig.CALLBACK_URL,
-        notifyConnect: Boolean = false
+        notifyConnect: Boolean = false,
+        /** `false` for same-device companion POS (GoMenu, demo) — kiosk stays unpinned. */
+        kioskLock: Boolean = false
     ): Uri = Uri.parse("$KIOSK_SCHEME://$KIOSK_HOST_CONNECT").buildUpon()
         .appendQueryParameter("callback_url", callbackUrl)
+        .appendQueryParameter("kiosk_lock", if (kioskLock) "1" else "0")
         .apply {
             if (!notifyConnect) appendQueryParameter("notify", "0")
         }
