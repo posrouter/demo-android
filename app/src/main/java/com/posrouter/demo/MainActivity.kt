@@ -701,11 +701,6 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        if (type != "PAY" && type.isNotEmpty()) {
-            clearLaunchIntent()
-            return
-        }
-
         val orderId = data.getQueryParameter("orderid") ?: data.getQueryParameter("orderId")
         val kioskRelayOrderId = pendingKioskRelayOrderId()
         val inKioskChargeFlow = kioskRelayOrderId != null && orderId == kioskRelayOrderId
@@ -721,6 +716,11 @@ class MainActivity : AppCompatActivity() {
                 moveTaskToBack(true)
                 return
             }
+        }
+
+        if (type != "PAY" && type.isNotEmpty()) {
+            clearLaunchIntent()
+            return
         }
 
         val result = if (inKioskChargeFlow) {
