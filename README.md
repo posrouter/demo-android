@@ -231,15 +231,15 @@ result.metadata["cancelReason"] == PaymentCancelReason.USER_CANCEL  // "user_can
 // or PaymentCancelReason.INITIATOR_VOID for VOID ack
 ```
 
-Demo logs the optional hooks in `MainActivity.routerCallback`, and still uses `reportPayResult` / `showPayResultDialog` from `onResult`:
+Demo `POSRouter.pay` uses `payRouterCallback`:
 
-| `status` | `cancelReason` | Banner title |
-|----------|----------------|--------------|
-| `CANCELLED` | `initiator_void` | Payment voided (dialog skipped for VOID ack) |
-| `CANCELLED` | `user_cancel` / other | Payment cancelled |
-| `APPROVED` / `DECLINED` / `ERROR` | — | as usual |
+| Hook | Demo behaviour |
+|------|----------------|
+| `onUserCancelled` | Status log + cancel dialog (`finishPayOutcome`) |
+| `onInitiatorVoided` | Clear cart, status log, **no** result dialog |
+| `onResult` | Approvals / declines / other — skips cancel types already handled above |
 
-Constants: SDK `PaymentCancelReason`.
+Constants: SDK `PaymentCancelReason`. See `MainActivity.onPay` / `payRouterCallback`.
 
 ## SDK integration
 

@@ -457,18 +457,31 @@ class MainActivity : AppCompatActivity() {
                 remark = remark,
                 method = method
             ),
-            routerCallback { result, error ->
-                when {
-                    result != null -> reportPayResult(result)
-                    error != null -> {
-                        pendingOrderId = null
-                        voidInProgress = false
-                        updateVoidButtonState()
-                        POSRouter.cancelPendingPayment(orderId)
-                        appendSdkStatus("Pay error [${error.code}]: ${error.message}")
-                    }
+            payRouterCallback(
+                onUserCancelled = { result ->
+                    appendSdkStatus("onUserCancelled — order=${result.orderId}")
+                    finishPayOutcome(result, showDialog = true)
+                },
+                onInitiatorVoided = { result ->
+                    appendSdkStatus("onInitiatorVoided — order=${result.orderId}")
+                    // Staff already pressed VOID — clear cart, skip result dialog.
+                    orderItems.clear()
+                    refreshOrder()
+                    finishPayOutcome(result, showDialog = false)
+                },
+                onResult = { result ->
+                    // Skip cancel types already handled by the optional hooks above.
+                    if (isUserCancelledResult(result) || isInitiatorVoidResult(result)) return@payRouterCallback
+                    reportPayResult(result)
+                },
+                onError = { error ->
+                    pendingOrderId = null
+                    voidInProgress = false
+                    updateVoidButtonState()
+                    POSRouter.cancelPendingPayment(orderId)
+                    appendSdkStatus("Pay error [${error.code}]: ${error.message}")
                 }
-            }
+            )
         )
     }
 
@@ -635,16 +648,23 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun reportPayResult(result: PaymentResult) {
+        if (result.status == PaymentStatus.APPROVED) {
+            orderItems.clear()
+            refreshOrder()
+        }
+        finishPayOutcome(result, showDialog = true)
+    }
+
+    /** Shared cleanup after a terminal pay outcome (hooks + generic onResult). */
+    private fun finishPayOutcome(result: PaymentResult, showDialog: Boolean) {
         awaitingKioskRelay = false
         ConnectStateStore.setKioskRelayOrderId(this, null)
         voidInProgress = false
         val route = routeLabel(result.localRouteMethod)
         val cancelReason = result.metadata["cancelReason"]
-        val voidAck = isInitiatorVoidResult(result)
         appendSdkStatus(
             buildString {
-                if (voidAck) append("Void acknowledged — payment cancelled")
-                else append("Payment ${result.status}")
+                append("Payment ${result.status}")
                 result.orderId?.let { append(" — order=$it") }
                 if (route != null) append(" via $route")
                 cancelReason?.let { append("\n  cancelReason=$it") }
@@ -652,16 +672,7 @@ class MainActivity : AppCompatActivity() {
                 result.message?.let { append("\n  $it") }
             }
         )
-        if (result.status == PaymentStatus.APPROVED) {
-            orderItems.clear()
-            refreshOrder()
-        } else if (result.status == PaymentStatus.CANCELLED &&
-            cancelReason == PaymentCancelReason.INITIATOR_VOID
-        ) {
-            orderItems.clear()
-            refreshOrder()
-        }
-        if (!isInitiatorVoidResult(result)) {
+        if (showDialog) {
             showPayResultDialog(result)
         }
         pendingOrderId = null
@@ -672,14 +683,15 @@ class MainActivity : AppCompatActivity() {
         result.status == PaymentStatus.CANCELLED &&
             result.metadata["cancelReason"] == PaymentCancelReason.INITIATOR_VOID
 
+    private fun isUserCancelledResult(result: PaymentResult): Boolean =
+        result.status == PaymentStatus.CANCELLED &&
+            result.metadata["cancelReason"] == PaymentCancelReason.USER_CANCEL
+
     private fun showPayResultDialog(result: PaymentResult) {
         val cancelReason = result.metadata["cancelReason"]
         val titleRes = when (result.status) {
             PaymentStatus.APPROVED -> R.string.pay_banner_title_approved
-            PaymentStatus.CANCELLED -> when (cancelReason) {
-                PaymentCancelReason.INITIATOR_VOID -> R.string.pay_banner_title_voided
-                else -> R.string.pay_banner_title_cancelled
-            }
+            PaymentStatus.CANCELLED -> R.string.pay_banner_title_cancelled
             PaymentStatus.DECLINED -> R.string.pay_banner_title_declined
             PaymentStatus.ERROR -> R.string.pay_banner_title_error
         }
@@ -854,21 +866,28 @@ class MainActivity : AppCompatActivity() {
         override fun onError(error: POSRouterError) {
             runOnUiThread { handler(null, error) }
         }
+    }
 
+    private fun payRouterCallback(
+        onUserCancelled: (PaymentResult) -> Unit,
+        onInitiatorVoided: (PaymentResult) -> Unit,
+        onResult: (PaymentResult) -> Unit,
+        onError: (POSRouterError) -> Unit
+    ) = object : POSRouterCallback {
         override fun onUserCancelled(result: PaymentResult) {
-            runOnUiThread {
-                appendSdkStatus(
-                    "onUserCancelled — order=${result.orderId} (optional cancel hook)"
-                )
-            }
+            runOnUiThread { onUserCancelled(result) }
         }
 
         override fun onInitiatorVoided(result: PaymentResult) {
-            runOnUiThread {
-                appendSdkStatus(
-                    "onInitiatorVoided — order=${result.orderId} (optional void hook)"
-                )
-            }
+            runOnUiThread { onInitiatorVoided(result) }
+        }
+
+        override fun onResult(result: PaymentResult) {
+            runOnUiThread { onResult(result) }
+        }
+
+        override fun onError(error: POSRouterError) {
+            runOnUiThread { onError(error) }
         }
     }
 
