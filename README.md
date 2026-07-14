@@ -151,6 +151,96 @@ Result path for SDK: same relay → `POSRouter.deliverAcquirerCallback` → pend
 
 See `MainActivity.onRemoteKiosk`, `onLocalKioskSdk`, `onLocalKioskDeepLink`, `onLocalKioskIntent`.
 
+## VOID button (initiator cancel)
+
+While a remote pay is in flight (e.g. after **Remote Kiosk**), the **VOID** button asks the terminal to abandon the attempt. Demo keeps `pendingOrderId` from `pay` and enables VOID until a final pay result arrives.
+
+```kotlin
+// After POSRouter.pay(...), keep the orderId
+pendingOrderId = orderId
+btnVoid.isEnabled = true
+
+fun onVoidPayment() {
+    val orderId = pendingOrderId ?: return
+    if (POSRouter.currentLensingState() != LensingConnectionState.CONNECTED) {
+        // Void needs NATS — Setup / wait until Connected
+        return
+    }
+    if (POSRouter.voidPayment(orderId)) {
+        // Soft void published; wait for the original pay callback
+        voidInProgress = true
+    } else {
+        // No open local session for this order
+    }
+}
+```
+
+SDK behaviour (`POSRouter.voidPayment`):
+
+1. Looks up the open pay attempt for `orderId` on this device  
+2. Publishes a Lensing **void** subject to the terminal  
+3. Does **not** call your callback immediately — the terminal soft-acks with a cancelled result  
+4. Your original `POSRouter.pay` callback then receives:
+
+```kotlin
+result.status == PaymentStatus.CANCELLED
+result.metadata["cancelReason"] == PaymentCancelReason.INITIATOR_VOID  // "initiator_void"
+```
+
+Demo handles that in `MainActivity.reportPayResult` / `isInitiatorVoidResult`: log “Void acknowledged”, clear the order, **skip** the pay result dialog (VOID is already an intentional staff action). See `MainActivity.onVoidPayment`.
+
+> VOID is for **remote / Lensing** flows. Local Deeplink / Intent kiosk charges are not voided through this API.
+
+## Remote terminal cancelled (user cancel)
+
+When the **terminal** (or acquirer UI) cancels — customer taps Cancel on the kiosk method picker, or cancels in Ezypos/Skyzer — the SDK delivers the pay outcome to your `POSRouterCallback`.
+
+### Recommended: optional typed hooks
+
+You do **not** have to inspect `cancelReason` in `onResult`. Override the default no-op methods:
+
+```kotlin
+POSRouter.pay(activity, request, object : POSRouterCallback {
+    override fun onUserCancelled(result: PaymentResult) {
+        // Remote / acquirer user cancelled — keep cart or prompt retry
+    }
+
+    override fun onInitiatorVoided(result: PaymentResult) {
+        // Staff VOID acknowledged (from POSRouter.voidPayment)
+    }
+
+    override fun onResult(result: PaymentResult) {
+        // Still called for every outcome (including cancels) — approvals, declines, etc.
+        if (result.status == PaymentStatus.APPROVED) { /* … */ }
+        pendingOrderId = null
+    }
+
+    override fun onError(error: POSRouterError) {
+        pendingOrderId = null
+    }
+}, routePreference = RoutePreference.REMOTE_ONLY)
+```
+
+Call order for a cancel: `onUserCancelled` / `onInitiatorVoided` **then** `onResult` (same `PaymentResult`). Existing integrators that only implement `onResult` keep working.
+
+### Equivalent payload (if you still parse in `onResult`)
+
+```kotlin
+result.status == PaymentStatus.CANCELLED
+result.metadata["cancelReason"] == PaymentCancelReason.USER_CANCEL  // "user_cancel"
+// or PaymentCancelReason.INITIATOR_VOID for VOID ack
+```
+
+Demo logs the optional hooks in `MainActivity.routerCallback`, and still uses `reportPayResult` / `showPayResultDialog` from `onResult`:
+
+| `status` | `cancelReason` | Banner title |
+|----------|----------------|--------------|
+| `CANCELLED` | `initiator_void` | Payment voided (dialog skipped for VOID ack) |
+| `CANCELLED` | `user_cancel` / other | Payment cancelled |
+| `APPROVED` / `DECLINED` / `ERROR` | — | as usual |
+
+Constants: SDK `PaymentCancelReason`.
+
 ## SDK integration
 
 Three ways to depend on the SDK (set in `gradle.properties` or override in `local.properties`):
@@ -255,8 +345,9 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 2. `POSRouter.setTerminalListener(...)` — Lensing status dot / remote-pay gating (see below)
 3. `POSRouter.connect()` — Gateway/Lensing (+ local Ezypos connect when applicable)
 4. `POSRouter.pay(request, callback)` — local acquirer or Lensing to terminal
-5. Optional: `POSRouter.voidPayment(orderId)` while pay is in flight — publishes `.void` to the terminal; pay callback completes with `CANCELLED` and `cancelReason=initiator_void`
-6. Handle `gomenu://pay_result` callback / await pay callback for final status
+5. Optional: **VOID** — `POSRouter.voidPayment(orderId)` while pay is in flight (see [VOID button](#void-button-initiator-cancel))
+6. Await the same `pay` callback for terminal outcomes, including remote user cancel (`cancelReason=user_cancel` — see [Remote terminal cancelled](#remote-terminal-cancelled-user-cancel))
+7. For local kiosk deeplink/Intent: handle partner `…://pay_result` (and `POSRouter.deliverAcquirerCallback` when using the SDK path)
 
 See `DemoConfig.kt` and `MainActivity.kt`.
 

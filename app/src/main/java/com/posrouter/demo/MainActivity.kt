@@ -854,6 +854,22 @@ class MainActivity : AppCompatActivity() {
         override fun onError(error: POSRouterError) {
             runOnUiThread { handler(null, error) }
         }
+
+        override fun onUserCancelled(result: PaymentResult) {
+            runOnUiThread {
+                appendSdkStatus(
+                    "onUserCancelled — order=${result.orderId} (optional cancel hook)"
+                )
+            }
+        }
+
+        override fun onInitiatorVoided(result: PaymentResult) {
+            runOnUiThread {
+                appendSdkStatus(
+                    "onInitiatorVoided — order=${result.orderId} (optional void hook)"
+                )
+            }
+        }
     }
 
     private class ProductAdapter(
