@@ -4,6 +4,7 @@
     <uses-permission android:name="android.permission.INTERNET" />
 
     <queries>
+        <package android:name="com.posrouter.kiosk" />
         <intent>
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="posrouter-kiosk" android:host="connect" />

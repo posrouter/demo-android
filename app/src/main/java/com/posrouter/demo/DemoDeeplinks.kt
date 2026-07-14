@@ -8,11 +8,12 @@ import com.posrouter.PaymentResult
 /**
  * Demo POS deeplinks — same partner role as GoMenu, with demo's own scheme.
  *
- * - [buildKioskConnectUri] — register once (`notify=0`, no bounce back to demo)
- * - [buildKioskChargeUri] — repeat per payment (`partner_scheme` looks up connect bucket)
+ * - [buildKioskChargeUri] — per payment; include `callback_url` (no prior connect required)
+ * - [buildKioskConnectUri] — optional: register partner bucket / `kiosk_lock=0`
  * - Receive kiosk relay + Ezypos callbacks: [PAY_RESULT_URI]
  *
- * GoMenu integration is analogous using `gomenu://pay_result` on connect.
+ * Prefer [RoutePreference.LOCAL_POSROUTER_KIOSK] via `POSRouter.pay` for partner apps;
+ * deeplink / explicit Intent are also demonstrated in [MainActivity].
  */
 object DemoDeeplinks {
     const val KIOSK_SCHEME = "posrouter-kiosk"

@@ -66,13 +66,11 @@ class MainActivity : AppCompatActivity() {
         applyLensingStatus(state)
     }
     private lateinit var btnConnect: MaterialButton
-    private lateinit var btnKioskConnect: MaterialButton
     private lateinit var btnVoidPayment: MaterialButton
     private var orderCounter = 1
     private var pendingOrderId: String? = null
     private var voidInProgress = false
     private var isConnected = false
-    private var isKioskPartnerConnected = false
     private var awaitingKioskRelay = false
     private var pausedAtElapsedMs = 0L
 
@@ -91,12 +89,10 @@ class MainActivity : AppCompatActivity() {
             pendingOrderId = savedInstanceState.getString(STATE_PENDING_ORDER_ID)
             voidInProgress = savedInstanceState.getBoolean(STATE_VOID_IN_PROGRESS, false)
             isConnected = savedInstanceState.getBoolean(STATE_EZYPOS_CONNECTED, false)
-            isKioskPartnerConnected = savedInstanceState.getBoolean(STATE_KIOSK_PARTNER_CONNECTED, false)
             awaitingKioskRelay = savedInstanceState.getBoolean(STATE_AWAITING_KIOSK_RELAY, false)
             lensingStatusLabelPinned = savedInstanceState.getBoolean(STATE_LENSING_LABEL_PINNED, false)
         } else {
             isConnected = ConnectStateStore.isEzyposConnected(this)
-            isKioskPartnerConnected = ConnectStateStore.isKioskPartnerConnected(this)
         }
 
         POSRouter.initialize(this, DemoConfig.routerConfig(this))
@@ -113,20 +109,19 @@ class MainActivity : AppCompatActivity() {
             lensingStatusLabel.visibility = View.VISIBLE
         }
         btnConnect = findViewById(R.id.btnConnect)
-        btnKioskConnect = findViewById(R.id.btnKioskConnect)
         btnVoidPayment = findViewById(R.id.btnVoidPayment)
         POSRouter.setTerminalListener(terminalListener)
         listOf(
-            R.id.btnPayTerminalPick,
-            R.id.btnKioskConnect,
-            R.id.btnKioskCharge,
+            R.id.btnRemoteKiosk,
+            R.id.btnLocalKioskDeepLink,
+            R.id.btnLocalKioskSdk,
+            R.id.btnLocalKioskIntent,
             R.id.btnPayCard,
             R.id.btnPayQr,
             R.id.btnPaySkyzer,
             R.id.btnVoidPayment
         ).forEach { id -> compactPayButton(findViewById(id)) }
         applyConnectButtonStyle()
-        applyKioskConnectButtonStyle()
         updateLensingStatus(POSRouter.currentLensingState())
         updateVoidButtonState()
 
@@ -142,11 +137,13 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnPayCard).setOnClickListener { onPay(DemoConfig.PAY_METHOD_CARD) }
         findViewById<Button>(R.id.btnPayQr).setOnClickListener { onPay(DemoConfig.PAY_METHOD_QR) }
         findViewById<Button>(R.id.btnPaySkyzer).setOnClickListener { onPay(DemoConfig.PAY_METHOD_SKYZER) }
-        findViewById<Button>(R.id.btnPayTerminalPick).setOnClickListener { onPayTerminalPick() }
-        btnKioskConnect.setOnClickListener { onKioskConnect() }
-        findViewById<Button>(R.id.btnKioskCharge).setOnClickListener { onKioskCharge() }
+        findViewById<Button>(R.id.btnRemoteKiosk).setOnClickListener { onRemoteKiosk() }
+        findViewById<Button>(R.id.btnLocalKioskDeepLink).setOnClickListener { onLocalKioskDeepLink() }
+        findViewById<Button>(R.id.btnLocalKioskSdk).setOnClickListener { onLocalKioskSdk() }
+        findViewById<Button>(R.id.btnLocalKioskIntent).setOnClickListener { onLocalKioskIntent() }
         findViewById<MaterialButton>(R.id.btnClearOrder).setOnClickListener { clearOrder() }
         btnVoidPayment.setOnClickListener { onVoidPayment() }
+        refreshLocalKioskButtons()
 
         handlePayResultIntent(intent)
     }
@@ -164,7 +161,6 @@ class MainActivity : AppCompatActivity() {
         outState.putString(STATE_PENDING_ORDER_ID, pendingOrderId)
         outState.putBoolean(STATE_VOID_IN_PROGRESS, voidInProgress)
         outState.putBoolean(STATE_EZYPOS_CONNECTED, isConnected)
-        outState.putBoolean(STATE_KIOSK_PARTNER_CONNECTED, isKioskPartnerConnected)
         outState.putBoolean(STATE_AWAITING_KIOSK_RELAY, awaitingKioskRelay)
         outState.putBoolean(STATE_LENSING_LABEL_PINNED, lensingStatusLabelPinned)
     }
@@ -190,6 +186,15 @@ class MainActivity : AppCompatActivity() {
         POSRouter.refreshLensingConnection(backgroundMs)
         mainHandler.removeCallbacks(applyLensingStatusRunnable)
         applyLensingStatus(POSRouter.currentLensingState())
+        refreshLocalKioskButtons()
+    }
+
+    /** Disable Local Kiosk buttons when POSRouter Kiosk is not installed (SDK-only devices). */
+    private fun refreshLocalKioskButtons() {
+        val available = POSRouter.isLocalKioskAvailable(this)
+        findViewById<MaterialButton>(R.id.btnLocalKioskDeepLink).isEnabled = available
+        findViewById<MaterialButton>(R.id.btnLocalKioskSdk).isEnabled = available
+        findViewById<MaterialButton>(R.id.btnLocalKioskIntent).isEnabled = available
     }
 
     private fun showConnectOptionsDialog() {
@@ -294,47 +299,92 @@ class MainActivity : AppCompatActivity() {
         POSRouter.reconnectLensing()
     }
 
-    private fun onPayTerminalPick() {
+    /** NATS → remote terminal method picker (`POSRouter.pay` + `remote_only`). */
+    private fun onRemoteKiosk() {
         if (POSRouter.currentLensingState() != LensingConnectionState.CONNECTED) {
-            Toast.makeText(this, R.string.pay_terminal_pick_lensing_offline, Toast.LENGTH_LONG).show()
+            Toast.makeText(this, R.string.pay_remote_kiosk_lensing_offline, Toast.LENGTH_LONG).show()
             return
         }
-        val route = ConnectStateStore.getRoutePreference(this)
-        if (route == RoutePreference.LOCAL_ONLY) {
-            Toast.makeText(this, R.string.pay_terminal_pick_route_hint, Toast.LENGTH_LONG).show()
-            return
-        }
-        onPay(method = DemoConfig.PAY_METHOD_SELECTION, routePreference = RoutePreference.REMOTE_ONLY)
+        onPay(
+            method = DemoConfig.PAY_METHOD_SELECTION,
+            routePreference = RoutePreference.REMOTE_ONLY
+        )
     }
 
-    private fun applySavedRoutePreference() {
-        POSRouter.setRoutePreference(ConnectStateStore.getRoutePreference(this))
-    }
-
-    /** Register demo callback with kiosk once (persists on kiosk until another partner connects). */
-    private fun onKioskConnect() {
-        val connectUri = DemoDeeplinks.buildKioskConnectUri()
-        appendSdkStatus("Kiosk connect — callback=${DemoDeeplinks.PAY_RESULT_URI}")
-        appendSdkStatus("Launch: $connectUri")
+    /**
+     * Same-device kiosk via implicit deeplink:
+     * `Intent(ACTION_VIEW, posrouter-kiosk://charge?…)`.
+     */
+    private fun onLocalKioskDeepLink() {
+        if (!ensureLocalKioskInstalled()) return
+        val prepared = prepareLocalKioskCharge("Deep Link") ?: return
         try {
-            startActivity(Intent(Intent.ACTION_VIEW, connectUri))
-            markKioskPartnerConnected()
-            Toast.makeText(this, R.string.pay_kiosk_connect_launching, Toast.LENGTH_SHORT).show()
-        } catch (_: ActivityNotFoundException) {
-            Toast.makeText(this, R.string.pay_kiosk_local_not_installed, Toast.LENGTH_LONG).show()
-            appendSdkStatus(getString(R.string.pay_kiosk_local_not_installed))
+            startActivity(Intent(Intent.ACTION_VIEW, prepared.chargeUri))
+            Toast.makeText(this, R.string.pay_kiosk_launching, Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            clearKioskRelayFlow()
+            reportLocalKioskUnavailable(e)
         }
     }
 
-    /** Open kiosk payment menu; requires prior [onKioskConnect]. */
-    private fun onKioskCharge() {
-        if (!isKioskPartnerConnected) {
-            Toast.makeText(this, R.string.pay_kiosk_connect_first, Toast.LENGTH_LONG).show()
-            return
+    /**
+     * Same-device kiosk via SDK:
+     * `POSRouter.pay(..., routePreference = LOCAL_POSROUTER_KIOSK)`.
+     */
+    private fun onLocalKioskSdk() {
+        if (!ensureLocalKioskInstalled()) return
+        onPay(
+            method = DemoConfig.PAY_METHOD_SELECTION,
+            routePreference = RoutePreference.LOCAL_POSROUTER_KIOSK
+        )
+    }
+
+    /**
+     * Same-device kiosk via explicit component Intent
+     * (`setClassName` to [DemoConfig.KIOSK_ACTIVITY] + charge URI data).
+     */
+    private fun onLocalKioskIntent() {
+        if (!ensureLocalKioskInstalled()) return
+        val prepared = prepareLocalKioskCharge("Intent") ?: return
+        try {
+            val intent = Intent(Intent.ACTION_VIEW, prepared.chargeUri).apply {
+                setClassName(DemoConfig.KIOSK_PACKAGE, DemoConfig.KIOSK_ACTIVITY)
+                addCategory(Intent.CATEGORY_DEFAULT)
+                addCategory(Intent.CATEGORY_BROWSABLE)
+            }
+            startActivity(intent)
+            Toast.makeText(this, R.string.pay_kiosk_launching, Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            clearKioskRelayFlow()
+            reportLocalKioskUnavailable(e)
         }
+    }
+
+    private fun ensureLocalKioskInstalled(): Boolean {
+        if (POSRouter.isLocalKioskAvailable(this)) return true
+        refreshLocalKioskButtons()
+        reportLocalKioskUnavailable(null)
+        return false
+    }
+
+    private fun reportLocalKioskUnavailable(error: Exception?) {
+        val message = getString(R.string.pay_kiosk_local_not_installed)
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+        appendSdkStatus(
+            if (error != null) "$message (${error.javaClass.simpleName}: ${error.message})"
+            else message
+        )
+    }
+
+    private data class PreparedLocalKioskCharge(
+        val orderId: String,
+        val chargeUri: Uri
+    )
+
+    private fun prepareLocalKioskCharge(label: String): PreparedLocalKioskCharge? {
         if (orderItems.isEmpty()) {
             Toast.makeText(this, R.string.order_empty, Toast.LENGTH_SHORT).show()
-            return
+            return null
         }
 
         val totalCents = orderItems.sumOf { it.priceCents }
@@ -351,27 +401,16 @@ class MainActivity : AppCompatActivity() {
             currency = DemoConfig.CURRENCY,
             remark = remark
         )
-        appendSdkStatus("Kiosk charge — order=$orderId amount=${totalCents / 100.0}")
+        appendSdkStatus("Local Kiosk ($label) — order=$orderId amount=${totalCents / 100.0}")
         appendSdkStatus("Launch: $chargeUri")
         appendSdkStatus("Await relay: ${DemoDeeplinks.PAY_RESULT_URI}")
-
-        try {
-            awaitingKioskRelay = true
-            ConnectStateStore.setKioskRelayOrderId(this, orderId)
-            startActivity(Intent(Intent.ACTION_VIEW, chargeUri))
-            Toast.makeText(this, R.string.pay_kiosk_charge_launching, Toast.LENGTH_SHORT).show()
-        } catch (_: ActivityNotFoundException) {
-            clearKioskRelayFlow()
-            Toast.makeText(this, R.string.pay_kiosk_local_not_installed, Toast.LENGTH_LONG).show()
-            appendSdkStatus(getString(R.string.pay_kiosk_local_not_installed))
-        }
+        awaitingKioskRelay = true
+        ConnectStateStore.setKioskRelayOrderId(this, orderId)
+        return PreparedLocalKioskCharge(orderId, chargeUri)
     }
 
-    private fun markKioskPartnerConnected() {
-        isKioskPartnerConnected = true
-        ConnectStateStore.setKioskPartnerConnected(this, true)
-        appendSdkStatus(getString(R.string.pay_kiosk_connect_ok, DemoDeeplinks.PAY_RESULT_URI))
-        applyKioskConnectButtonStyle()
+    private fun applySavedRoutePreference() {
+        POSRouter.setRoutePreference(ConnectStateStore.getRoutePreference(this))
     }
 
     private fun clearKioskRelayFlow() {
@@ -403,6 +442,11 @@ class MainActivity : AppCompatActivity() {
         appendSdkStatus(
             "Pay requested — order=$orderId method=$methodLabel amount=${totalCents / 100.0} route=$effectiveRoute"
         )
+        if (effectiveRoute == RoutePreference.LOCAL_POSROUTER_KIOSK) {
+            awaitingKioskRelay = true
+            ConnectStateStore.setKioskRelayOrderId(this, orderId)
+            appendSdkStatus("Await local-kiosk relay: ${DemoDeeplinks.PAY_RESULT_URI}")
+        }
 
         POSRouter.pay(
             this,
@@ -590,26 +634,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun applyKioskConnectButtonStyle() {
-        if (isKioskPartnerConnected) {
-            btnKioskConnect.text = getString(R.string.btn_kiosk_connected)
-            btnKioskConnect.strokeWidth = 0
-            btnKioskConnect.backgroundTintList = ColorStateList.valueOf(
-                MaterialColors.getColor(btnKioskConnect, com.google.android.material.R.attr.colorPrimary)
-            )
-            btnKioskConnect.setTextColor(
-                MaterialColors.getColor(btnKioskConnect, com.google.android.material.R.attr.colorOnPrimary)
-            )
-        } else {
-            btnKioskConnect.text = getString(R.string.btn_kiosk_connect)
-            btnKioskConnect.strokeWidth = (resources.displayMetrics.density).toInt().coerceAtLeast(1)
-            btnKioskConnect.backgroundTintList = ColorStateList.valueOf(Color.TRANSPARENT)
-            btnKioskConnect.setTextColor(
-                MaterialColors.getColor(btnKioskConnect, com.google.android.material.R.attr.colorPrimary)
-            )
-        }
-    }
-
     private fun reportPayResult(result: PaymentResult) {
         awaitingKioskRelay = false
         ConnectStateStore.setKioskRelayOrderId(this, null)
@@ -725,14 +749,22 @@ class MainActivity : AppCompatActivity() {
 
         val result = if (inKioskChargeFlow) {
             appendSdkStatus("Kiosk relay: ${formatCallbackUri(data)}")
-            DemoDeeplinks.parsePartnerRelayResult(data)
+            val delivered = POSRouter.deliverAcquirerCallback(data)
+            if (delivered?.metadata?.get(POSRouter.META_PAY_CALLBACK_DELIVERED) == "1") {
+                // POSRouter.pay(..., local_posrouter_kiosk) already reported via pay callback.
+                delivered
+            } else {
+                delivered ?: DemoDeeplinks.parsePartnerRelayResult(data)
+            }
         } else {
             appendSdkStatus("Ezypos callback: ${formatCallbackUri(data)}")
             POSRouter.deliverAcquirerCallback(data)
         }
-        if (result != null) {
+        if (result != null &&
+            result.metadata[POSRouter.META_PAY_CALLBACK_DELIVERED] != "1"
+        ) {
             reportPayResult(result)
-        } else {
+        } else if (result == null) {
             appendSdkStatus("Pay callback received but could not parse result")
         }
         clearLaunchIntent()
@@ -859,7 +891,6 @@ class MainActivity : AppCompatActivity() {
         private const val STATE_PENDING_ORDER_ID = "pending_order_id"
         private const val STATE_VOID_IN_PROGRESS = "void_in_progress"
         private const val STATE_EZYPOS_CONNECTED = "ezypos_connected"
-        private const val STATE_KIOSK_PARTNER_CONNECTED = "kiosk_partner_connected"
         private const val STATE_AWAITING_KIOSK_RELAY = "awaiting_kiosk_relay"
         private const val STATE_LENSING_LABEL_PINNED = "lensing_label_pinned"
         private const val LENSING_STATUS_DEBOUNCE_MS = 300L

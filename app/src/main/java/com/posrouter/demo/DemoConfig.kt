@@ -20,6 +20,10 @@ object DemoConfig {
     const val PAY_METHOD_SKYZER = PaymentRequest.METHOD_SKYZER
     const val PAY_METHOD_SELECTION = PaymentRequest.METHOD_SELECTION
 
+    /** Same-device POSRouter Kiosk (B-side). Used by Local Kiosk (Intent). */
+    const val KIOSK_PACKAGE = "com.posrouter.kiosk"
+    const val KIOSK_ACTIVITY = "com.posrouter.kiosk.KioskActivity"
+
     fun routerConfig(context: Context): POSRouterConfig =
         routerConfig(
             terminalId = ConnectStateStore.getTerminalId(context),

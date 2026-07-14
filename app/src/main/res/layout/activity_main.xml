@@ -40,13 +40,31 @@
         android:layout_marginTop="12dp"
         android:layout_weight="1" />
 
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btnPayTerminalPick"
-        style="@style/Widget.Demo.PayButton"
+    <!-- Kiosk route group: Remote + 3× Local launch demos -->
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:text="@string/btn_pay_terminal_pick" />
+        android:baselineAligned="false"
+        android:orientation="horizontal">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnRemoteKiosk"
+            style="@style/Widget.Demo.KioskRouteButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="8dp"
+            android:layout_weight="1"
+            android:text="@string/btn_remote_kiosk" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnLocalKioskSdk"
+            style="@style/Widget.Demo.KioskRouteButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/btn_local_kiosk_sdk" />
+    </LinearLayout>
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -56,21 +74,21 @@
         android:orientation="horizontal">
 
         <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnKioskConnect"
-            style="@style/Widget.Demo.PayButton.Outlined"
+            android:id="@+id/btnLocalKioskDeepLink"
+            style="@style/Widget.Demo.KioskRouteButton"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginEnd="8dp"
             android:layout_weight="1"
-            android:text="@string/btn_kiosk_connect" />
+            android:text="@string/btn_local_kiosk_deep_link" />
 
         <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnKioskCharge"
-            style="@style/Widget.Demo.PayButton"
+            android:id="@+id/btnLocalKioskIntent"
+            style="@style/Widget.Demo.KioskRouteButton"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="@string/btn_kiosk_charge" />
+            android:text="@string/btn_local_kiosk_intent" />
     </LinearLayout>
 
     <LinearLayout

@@ -48,9 +48,108 @@ Tap **Connect** to open:
 |-------|-------------|
 | Terminal ID | Lensing namespace terminal (must match kiosk on the lane) |
 | Merchant ID | `merchantId` segment on Lensing subjects |
-| Route preference | `auto` · `local_first` · `remote_first` · `local_only` · `remote_only` |
+| Route preference | `auto` · `local_first` · `remote_first` · `local_only` · `local_posrouter_kiosk` · `remote_only` |
 
-Route preference applies to **connect**, **pay**, and **refund** until changed on the next Connect.
+Route preference applies to **connect**, **pay**, and **refund** until changed on the next Connect. The kiosk launch demo buttons below force their own route (`remote_only` / `local_posrouter_kiosk`) and do not depend on this spinner.
+
+## Kiosk launch demos (UI)
+
+The deeper magenta **2×2** button block is one group:
+
+| Button | Channel | How it starts the kiosk |
+|--------|---------|-------------------------|
+| **Remote Kiosk** | NATS / Lensing | `POSRouter.pay(..., method=selection, remote_only)` |
+| **Local Kiosk (SDK)** | Same-device via SDK | `POSRouter.pay(..., method=selection, local_posrouter_kiosk)` — **recommended** |
+| **Local Kiosk (Deep Link)** | Same-device URI | `startActivity(Intent(ACTION_VIEW, posrouter-kiosk://charge?…))` |
+| **Local Kiosk (Intent)** | Same-device explicit | `Intent(ACTION_VIEW, chargeUri).setClassName(kioskPackage, KioskActivity)` |
+
+No prior **Kiosk connect** step is required for local launches: the charge URI (or SDK) includes `callback_url` so the kiosk can relay the result back to this app.
+
+If POSRouter Kiosk is **not installed**, the three Local Kiosk buttons are disabled. The SDK path returns `LOCAL_KIOSK_UNAVAILABLE` via `callback.onError` (does not crash). Check with `POSRouter.isLocalKioskAvailable(context)`.
+
+### 1. Remote Kiosk (SDK + NATS)
+
+```kotlin
+POSRouter.pay(
+    this,
+    PaymentRequest(
+        terminalId = terminalId,
+        amount = totalCents,
+        orderId = orderId,
+        method = PaymentRequest.METHOD_SELECTION
+    ),
+    callback,
+    routePreference = RoutePreference.REMOTE_ONLY
+)
+```
+
+Requires Lensing **CONNECTED**. The remote terminal shows the payment-method picker.
+
+### 2. Local Kiosk (SDK) — recommended
+
+```kotlin
+if (!POSRouter.isLocalKioskAvailable(this)) {
+    // Handle missing kiosk — do not call pay
+    return
+}
+
+POSRouter.pay(
+    this,
+    PaymentRequest(
+        terminalId = terminalId,
+        amount = totalCents,
+        orderId = orderId,
+        method = PaymentRequest.METHOD_SELECTION
+    ),
+    callback,
+    routePreference = RoutePreference.LOCAL_POSROUTER_KIOSK
+)
+```
+
+SDK builds `posrouter-kiosk://charge` (scheme overridable via `POSRouterConfig.localKioskScheme`) and delivers the result through the same `POSRouterCallback` when the partner `pay_result` URI is passed to `POSRouter.deliverAcquirerCallback`. If the kiosk is missing, `onError(LOCAL_KIOSK_UNAVAILABLE)` is invoked instead of throwing.
+
+### 3. Local Kiosk (Deep Link)
+
+```kotlin
+val chargeUri = Uri.parse("posrouter-kiosk://charge").buildUpon()
+    .appendQueryParameter("amount", totalCents.toString())
+    .appendQueryParameter("currency", "NZD")
+    .appendQueryParameter("orderid", orderId)
+    .appendQueryParameter("method", "selection")
+    .appendQueryParameter("callback_url", "posrouter-pos-demo-android://pay_result")
+    .appendQueryParameter("partner_scheme", "posrouter-pos-demo-android")
+    .build()
+
+try {
+    startActivity(Intent(Intent.ACTION_VIEW, chargeUri))
+} catch (e: ActivityNotFoundException) {
+    // Kiosk not installed
+}
+```
+
+Demo helper: `DemoDeeplinks.buildKioskChargeUri(...)`.
+
+### 4. Local Kiosk (Intent)
+
+Same charge URI as Deep Link, but pinned to the kiosk component (works when multiple apps could handle the scheme):
+
+```kotlin
+val intent = Intent(Intent.ACTION_VIEW, chargeUri).apply {
+    setClassName("com.posrouter.kiosk", "com.posrouter.kiosk.KioskActivity")
+    addCategory(Intent.CATEGORY_DEFAULT)
+    addCategory(Intent.CATEGORY_BROWSABLE)
+}
+try {
+    startActivity(intent)
+} catch (e: ActivityNotFoundException) {
+    // Kiosk not installed
+}
+```
+
+Result path for Deep Link / Intent: kiosk relays to `…://pay_result?relay=kiosk&…` → demo `handlePayResultIntent` → UI.  
+Result path for SDK: same relay → `POSRouter.deliverAcquirerCallback` → pending `pay` callback.
+
+See `MainActivity.onRemoteKiosk`, `onLocalKioskSdk`, `onLocalKioskDeepLink`, `onLocalKioskIntent`.
 
 ## SDK integration
 
