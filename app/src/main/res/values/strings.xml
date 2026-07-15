@@ -45,10 +45,12 @@
     <string name="btn_pay_qr">Pay (QR Code)</string>
     <string name="btn_pay_skyzer">Pay (Skyzer)</string>
     <string name="btn_remote_kiosk">Remote Kiosk</string>
+    <string name="btn_local_kiosk_connect">Connect\n(Local Kiosk)</string>
     <string name="btn_local_kiosk_deep_link">Local Kiosk\n(Deep Link)</string>
     <string name="btn_local_kiosk_sdk">Local Kiosk\n(SDK)</string>
     <string name="btn_local_kiosk_intent">Local Kiosk\n(Intent)</string>
     <string name="pay_kiosk_launching">Opening local kiosk payment menu…</string>
+    <string name="pay_kiosk_connect_waiting">Opening kiosk connect — confirm on terminal…</string>
     <string name="pay_kiosk_local_not_installed">POSRouter Kiosk is not installed on this device</string>
     <string name="pay_remote_kiosk_lensing_offline">Lensing offline — Remote Kiosk needs a connected Gateway/NATS session</string>
     <string name="sdk_status_label">SDK Status</string>

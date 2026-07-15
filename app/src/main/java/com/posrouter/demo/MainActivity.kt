@@ -113,6 +113,7 @@ class MainActivity : AppCompatActivity() {
         POSRouter.setTerminalListener(terminalListener)
         listOf(
             R.id.btnRemoteKiosk,
+            R.id.btnLocalKioskConnect,
             R.id.btnLocalKioskDeepLink,
             R.id.btnLocalKioskSdk,
             R.id.btnLocalKioskIntent,
@@ -138,6 +139,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnPayQr).setOnClickListener { onPay(DemoConfig.PAY_METHOD_QR) }
         findViewById<Button>(R.id.btnPaySkyzer).setOnClickListener { onPay(DemoConfig.PAY_METHOD_SKYZER) }
         findViewById<Button>(R.id.btnRemoteKiosk).setOnClickListener { onRemoteKiosk() }
+        findViewById<Button>(R.id.btnLocalKioskConnect).setOnClickListener { onLocalKioskConnect() }
         findViewById<Button>(R.id.btnLocalKioskDeepLink).setOnClickListener { onLocalKioskDeepLink() }
         findViewById<Button>(R.id.btnLocalKioskSdk).setOnClickListener { onLocalKioskSdk() }
         findViewById<Button>(R.id.btnLocalKioskIntent).setOnClickListener { onLocalKioskIntent() }
@@ -192,6 +194,7 @@ class MainActivity : AppCompatActivity() {
     /** Disable Local Kiosk buttons when POSRouter Kiosk is not installed (SDK-only devices). */
     private fun refreshLocalKioskButtons() {
         val available = POSRouter.isLocalKioskAvailable(this)
+        findViewById<MaterialButton>(R.id.btnLocalKioskConnect).isEnabled = available
         findViewById<MaterialButton>(R.id.btnLocalKioskDeepLink).isEnabled = available
         findViewById<MaterialButton>(R.id.btnLocalKioskSdk).isEnabled = available
         findViewById<MaterialButton>(R.id.btnLocalKioskIntent).isEnabled = available
@@ -308,6 +311,35 @@ class MainActivity : AppCompatActivity() {
         onPay(
             method = DemoConfig.PAY_METHOD_SELECTION,
             routePreference = RoutePreference.REMOTE_ONLY
+        )
+    }
+
+    /**
+     * Same-device kiosk connect handshake:
+     * `POSRouter.connect(..., routePreference = LOCAL_POSROUTER_KIOSK)`.
+     * Confirm on the kiosk dialog, then `type=CONNECT` returns here.
+     */
+    private fun onLocalKioskConnect() {
+        if (!ensureLocalKioskInstalled()) return
+        val terminalId = ConnectStateStore.getTerminalId(this)
+        val merchantId = ConnectStateStore.getMerchantId(this)
+        POSRouter.initialize(this, DemoConfig.routerConfig(terminalId, merchantId))
+        appendSdkStatus(getString(R.string.pay_kiosk_connect_waiting))
+        Toast.makeText(this, R.string.pay_kiosk_connect_waiting, Toast.LENGTH_SHORT).show()
+        POSRouter.connect(
+            this,
+            routerCallback { result, error ->
+                when {
+                    result != null -> {
+                        ConnectStateStore.setKioskPartnerConnected(this, true)
+                        reportConnectResult(result)
+                        appendSdkStatus("Local kiosk connect OK — ${result.message.orEmpty()}")
+                    }
+                    error != null ->
+                        appendSdkStatus("Local kiosk connect error [${error.code}]: ${error.message}")
+                }
+            },
+            routePreference = RoutePreference.LOCAL_POSROUTER_KIOSK
         )
     }
 
@@ -726,9 +758,13 @@ class MainActivity : AppCompatActivity() {
         val status = data.getQueryParameter("status")?.uppercase(Locale.US).orEmpty()
 
         if (type == "CONNECT") {
-            appendSdkStatus("Ezypos connect callback: ${formatCallbackUri(data)}")
+            appendSdkStatus("Connect callback: ${formatCallbackUri(data)}")
+            val delivered = POSRouter.deliverAcquirerCallback(data)
             if (status == "SUCCESS") {
                 markEzyposConnected()
+                if (delivered != null) {
+                    appendSdkStatus("Kiosk/local connect confirmed via SDK")
+                }
             } else {
                 clearEzyposConnected()
                 appendSdkStatus("Connect failed — status=$status")

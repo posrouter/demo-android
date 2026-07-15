@@ -40,7 +40,22 @@
         android:layout_marginTop="12dp"
         android:layout_weight="1" />
 
-    <!-- Kiosk route group: Remote + 3× Local launch demos -->
+    <!-- Kiosk route group: Remote alone; Connect + Local SDK; Deep Link + Intent -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:orientation="horizontal">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnRemoteKiosk"
+            style="@style/Widget.Demo.KioskRouteButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/btn_remote_kiosk" />
+    </LinearLayout>
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -49,13 +64,13 @@
         android:orientation="horizontal">
 
         <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnRemoteKiosk"
+            android:id="@+id/btnLocalKioskConnect"
             style="@style/Widget.Demo.KioskRouteButton"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginEnd="8dp"
             android:layout_weight="1"
-            android:text="@string/btn_remote_kiosk" />
+            android:text="@string/btn_local_kiosk_connect" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnLocalKioskSdk"
