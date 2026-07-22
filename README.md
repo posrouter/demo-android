@@ -295,7 +295,7 @@ gpr.key=ghp_...
 **4. Set SDK version** in `gradle.properties`:
 
 ```properties
-posrouterVersion=1.6.3
+posrouterVersion=1.6.5
 ```
 
 **5. Build**
@@ -326,7 +326,7 @@ dependencyResolutionManagement {
 ```kotlin
 // app/build.gradle.kts
 dependencies {
-    implementation("com.posrouter:posrouter:1.6.3")
+    implementation("com.posrouter:posrouter:1.6.5")
 }
 ```
 
@@ -381,7 +381,7 @@ Canonical indicator colors are defined in the SDK (`LensingConnectionIndicator`)
 
 Detailed guide: [../sdk-android/docs/integration-lensing-status.md](../sdk-android/docs/integration-lensing-status.md)
 
-## SDK upgrade (1.6.3+)
+## SDK upgrade (1.6.5+)
 
 If you integrated on SDK **≤ 1.0.2**, update code when replacing the AAR — not a drop-in swap:
 
@@ -393,4 +393,4 @@ If you integrated on SDK **≤ 1.0.2**, update code when replacing the AAR — n
 
 Migration checklist: [../sdk-android/docs/MIGRATION.md](../sdk-android/docs/MIGRATION.md)
 
-Bump Maven / AAR to **1.6.3** or newer. Version scheme: [../sdk-android/docs/VERSIONING.md](../sdk-android/docs/VERSIONING.md).
+Bump Maven / AAR to **1.6.5** or newer. Version scheme: [../sdk-android/docs/VERSIONING.md](../sdk-android/docs/VERSIONING.md).

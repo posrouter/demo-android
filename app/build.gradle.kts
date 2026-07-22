@@ -15,7 +15,7 @@ fun loadProperty(key: String, default: String): String {
 
 val useCompositeSdk = loadProperty("useCompositeSdk", "false").toBoolean()
 val useMavenSdk = loadProperty("useMavenSdk", "false").toBoolean()
-val posrouterVersion = loadProperty("posrouterVersion", "1.6.3")
+val posrouterVersion = loadProperty("posrouterVersion", "1.6.5")
 
 val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
